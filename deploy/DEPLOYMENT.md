@@ -1,0 +1,229 @@
+# LeadFlow AI production deployment
+
+This runbook describes the approved single-VPS foundation. It does not provision a server, alter DNS, or create secrets.
+
+> **Deployment gate:** do not accept production traffic until an encrypted off-VPS backup destination is configured and a full isolated restore drill succeeds. A backup left on the VPS is not a production backup.
+
+## Architecture and pinned images
+
+Use one Linux VPS with at least 2 vCPU, 4 GB RAM, adequate SSD storage, and swap for safe upgrades.
+
+| Service | Pinned image | Exposure |
+|---|---|---|
+| web | `nginxinc/nginx-unprivileged:1.28.0-alpine` | host ports 80 and 443 |
+| backend | Maven 3.9.9/Temurin 21 build; Temurin 21.0.5+11 JRE Alpine runtime | private |
+| mysql | `mysql:8.4.11` | private |
+| n8n | `docker.n8n.io/n8nio/n8n:2.33.7` | private webhook; editor at `127.0.0.1:5678` |
+| certbot | `certbot/certbot:v5.2.2` | one-shot/profile service |
+
+Record the resolved image digests after the first verified build. Review release notes before changing any pin.
+
+The edge, application, data, and n8n-egress networks are separated. MySQL joins only data. Backend joins application and data. n8n joins application and egress. Web joins edge and application. Public Nginx returns 404 for `/api/v1/automation` and `/actuator` before its general API proxy.
+
+## Host preparation
+
+Install Docker Engine and the Compose plugin from their supported repositories. Also install `age`, `sha256sum`, `tar`, `gzip`, and OpenSSH tools. Create a non-root deployment account and root-controlled backup staging directory.
+
+Configure DNS A/AAAA records, UTC time synchronization, automatic security updates, disk monitoring, and a firewall. Permit application ports 80 and 443. Restrict SSH to an administrator IP or VPN. Never open 3306, 5678, 8080, or Actuator publicly.
+
+Ensure `deploy/mysql/leadflow.cnf` is not group- or world-writable on Linux (`chmod 644 deploy/mysql/leadflow.cnf`). MySQL ignores world-writable option files. Compose also supplies the same deliberate server options directly so container behavior remains explicit.
+
+## Environment and secrets
+
+Create the production environment with owner-only permissions:
+
+```bash
+install -m 600 .env.example .env
+```
+
+Replace every placeholder with independent random values. Required names are:
+
+- `APP_DOMAIN`
+- `ACME_EMAIL`
+- `MYSQL_DATABASE`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `MYSQL_ROOT_PASSWORD`
+- `AUTOMATION_API_KEY`
+- `N8N_ENCRYPTION_KEY`
+
+Never store the administrator password, Gemini credential, certificate private key, session ID, CSRF token, or real workflow credential in Git. Back up `N8N_ENCRYPTION_KEY` separately in the approved secret store; restored n8n credentials cannot be decrypted without it.
+
+Production builds the frontend with `/api/v1`, requires secure cookies, trusts framework-parsed forwarded headers, disables the legacy callback, enables Step 17 safe retry, and uses private Docker DNS.
+
+## Build and configuration validation
+
+```bash
+docker compose -f compose.prod.yaml config --quiet
+docker compose -f compose.prod.yaml build backend web
+```
+
+Do not publish or copy a fully rendered Compose configuration because it contains secrets. Confirm only web publishes 80/443 and n8n publishes 5678 to loopback. Backend and MySQL must have no `ports` entry.
+
+## Database, Flyway, and startup order
+
+Initially keep dispatch disabled:
+
+```bash
+export QUALIFICATION_DISPATCHER_ENABLED=false
+docker compose -f compose.prod.yaml up -d mysql n8n
+docker compose -f compose.prod.yaml up -d backend
+docker compose -f compose.prod.yaml ps
+```
+
+Flyway applies V1–V8 before Hibernate validates the schema. Use one backend instance for migrations. Inspect logs without dumping environment values. Verify MySQL version, UTC, charset, and collation with an authenticated query from inside the MySQL container.
+
+Take and transfer an encrypted baseline backup before future migrations or image upgrades.
+
+## One-shot administrator bootstrap
+
+This is only for a fresh database. The script runs a non-web backend container, disables dispatch, prompts silently, and clears the password variable:
+
+```bash
+export ADMIN_BOOTSTRAP_EMAIL='administrator@example.com'
+export ADMIN_BOOTSTRAP_DISPLAY_NAME='LeadFlow Administrator'
+./deploy/scripts/bootstrap-admin.sh
+unset ADMIN_BOOTSTRAP_EMAIL ADMIN_BOOTSTRAP_DISPLAY_NAME
+```
+
+The application refuses to silently update an administrator or create a second one.
+
+## Private n8n editor and workflow activation
+
+Open an SSH tunnel from the administrator workstation:
+
+```bash
+ssh -L 5678:127.0.0.1:5678 deploy@your-vps
+```
+
+Open `http://localhost:5678`, complete n8n owner setup, and import `automation/LeadFlow AI — Lead Qualification.json`. Bind:
+
+- `LeadFlow Automation Key` to header `X-Automation-Key`, matching `AUTOMATION_API_KEY`.
+- `Google Gemini` to the approved Gemini credential.
+
+Confirm `LEADFLOW_API_BASE_URL=http://backend:8080/api/v1`. Test private start, success, and failure callbacks before activating the workflow. Run `n8n audit` after credential binding and review credential, node, database, webhook, and instance findings.
+
+Successful execution payloads are not retained. Failed executions are bounded by age and count. Review privacy needs before increasing those limits.
+
+After activation:
+
+```bash
+export QUALIFICATION_DISPATCHER_ENABLED=true
+docker compose -f compose.prod.yaml up -d --force-recreate backend
+unset QUALIFICATION_DISPATCHER_ENABLED
+```
+
+## Initial TLS issuance
+
+Confirm DNS and that port 80 is free. Nginx is not started with a missing certificate. The script stops web, runs standalone Certbot on port 80, then starts HTTPS only after issuance succeeds:
+
+```bash
+export APP_DOMAIN ACME_EMAIL
+./deploy/scripts/init-tls.sh
+```
+
+Verify HTTP redirect, HTTPS, certificate chain, static headers, and these non-revealing rejections:
+
+```bash
+curl -i "https://$APP_DOMAIN/actuator/health/readiness"
+curl -i "https://$APP_DOMAIN/api/v1/automation/"
+```
+
+Both public paths must return 404.
+
+## Authentication and proxy checks
+
+Using a fresh browser profile:
+
+1. Load every direct SPA route and test Back/Forward.
+2. Confirm normal API calls are same-origin and do not depend on CORS.
+3. Obtain CSRF, log in, perform a protected mutation, and log out.
+4. Confirm `LEADFLOW_SESSION` is Secure, HttpOnly, SameSite=Lax, path `/`, with no Domain.
+5. Confirm `XSRF-TOKEN` is Secure, SameSite=Lax, path `/`, and readable by the SPA as designed.
+6. Verify session restoration after backend restart and structured 401/403 responses.
+7. Verify an automation key cannot access administrative APIs and a browser session cannot replace the automation key.
+8. Verify current pages, searches, polling, notifications, analytics, and details remain functional with no console errors.
+
+Nginx rate-limits only POST `/api/v1/auth/login`, keyed by the direct peer address, to an average five requests per minute with a burst of five; excessive requests return 429. It does not trust arbitrary `X-Forwarded-For`. If a CDN is later added, configure real-IP handling only for that provider's verified ranges.
+
+## Health, restart, and logs
+
+Inspect private health from inside the stack:
+
+```bash
+docker compose -f compose.prod.yaml ps
+docker compose -f compose.prod.yaml exec -T backend wget -q -O - http://127.0.0.1:8080/actuator/health/liveness
+docker compose -f compose.prod.yaml exec -T backend wget -q -O - http://127.0.0.1:8080/actuator/health/readiness
+docker compose -f compose.prod.yaml exec -T n8n node -e "fetch('http://127.0.0.1:5678/healthz/readiness').then(r=>process.exit(r.ok?0:1))"
+```
+
+Readiness includes MySQL. Liveness excludes n8n and Gemini. No other Actuator endpoint is exposed. Stop and restart each service to confirm volume persistence and restart policy. Send SIGTERM to backend and confirm completion within its 45-second Compose grace period.
+
+Docker JSON logs rotate at 10 MB with five files. Keep timestamps in UTC. Never enable request-body, SQL-parameter, cookie, session, CSRF, automation-key, Gemini prompt/response, or raw lead-payload logging. Use attempt UUIDs for safe correlation.
+
+Monitor disk space, container health, oldest pending outbox work, failed/timed-out attempts, certificate expiry, backup age, and off-host transfer success.
+
+## Encrypted backup and off-host handoff
+
+Configure an age public recipient and explicit staging directory:
+
+```bash
+export AGE_RECIPIENT='age1...public-recipient...'
+export BACKUP_DIR='/srv/leadflow/backups'
+export BACKUP_RETENTION_DAYS=14
+./deploy/scripts/backup.sh
+```
+
+The script creates a transactionally consistent MySQL dump, briefly stops n8n for a consistent data archive, encrypts the combined archive, creates a SHA-256 checksum, and prunes only validated matching files inside the resolved backup directory. It deliberately excludes `N8N_ENCRYPTION_KEY`.
+
+Transfer both `.age` and `.sha256` files to the approved encrypted off-VPS destination and verify the checksum there. Until that succeeds, deployment remains blocked.
+
+## Restore drill
+
+Restore first into an isolated Compose project/host. The script creates a safety backup before destructive work, so configure both encryption directions:
+
+```bash
+export AGE_RECIPIENT='age1...public-recipient...'
+export AGE_IDENTITY_FILE='/root/secure/leadflow-backup-key.txt'
+export BACKUP_DIR='/srv/leadflow/backups'
+./deploy/scripts/restore.sh /absolute/path/to/leadflow-TIMESTAMP.tar.gz.age
+```
+
+The script verifies the checksum, requires typing the exact database name, creates a safety backup, stops backend and n8n, restores both data sets, and intentionally leaves operational services stopped.
+
+Before resuming:
+
+1. Preserve the failed pre-restore state and safety backup off-host.
+2. Validate `flyway_schema_history` through V8.
+3. Start one backend with dispatch disabled and confirm Flyway, Hibernate, readiness, users, sessions, attempts, and outbox.
+4. Start n8n and verify credential decryption and workflow state.
+5. Manually re-enable dispatch only after consistency checks.
+
+Never run restore from normal startup or unattended automation.
+
+## Certificate renewal
+
+```bash
+./deploy/scripts/renew-tls.sh --dry-run
+./deploy/scripts/renew-tls.sh
+```
+
+Schedule the real script with a root-controlled systemd timer or cron. Nginx reloads only after successful real renewal. Monitor expiry separately.
+
+## Automation smoke test
+
+Create at most one unique controlled lead. Verify one lead, Attempt 1, outbox delivery, correlated n8n execution, accepted start before Gemini, one terminal callback, one terminal state, and no duplicate notification. Verify Step 17 retry remains attempt-aware and safe. Browser requests to callback paths must return 404; all automation traffic uses private Docker DNS.
+
+## Upgrade and rollback
+
+Before upgrading, review release notes, produce and transfer an encrypted backup, record tags/digests, pass CI, and stop dispatch during database-sensitive work. Start one backend for Flyway, then verify Hibernate, authentication, health, and automation.
+
+**Application-image rollback alone may be unsafe after a non-backward-compatible Flyway migration.** Migrations are forward-only. Safe rollback may require stopping backend/n8n, preserving the failed database, restoring the pre-deployment database and n8n backup, starting the prior image with dispatch disabled, validating everything, and only then re-enabling dispatch.
+
+## Known limitations
+
+- One VPS is a single failure domain.
+- No Redis, queue mode, Kubernetes, or automatic failover is included.
+- Actual TLS/security verification requires real DNS and a VPS.
+- The off-VPS provider remains undecided and is a deployment blocker.
+- The approximately 813 KB frontend bundle warning remains; route-level lazy loading is deferred to a focused performance step.

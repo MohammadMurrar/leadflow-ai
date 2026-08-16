@@ -1,0 +1,135 @@
+{
+  "name": "LeadFlow AI — Lead Qualification",
+  "active": false,
+  "nodes": [
+    {
+      "name": "Qualification Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": { "httpMethod": "POST", "path": "lead-qualification", "responseMode": "responseNode", "options": {} }
+    },
+    {
+      "name": "Validate and Normalize Dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? {};\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nif (!uuid.test(body.leadId) || !uuid.test(body.attemptId) || !Number.isInteger(body.attemptNumber) || body.attemptNumber < 1 || !body.lead) throw new Error('Invalid qualification dispatch');\nreturn [{ json: { leadId: body.leadId, attemptId: body.attemptId, attemptNumber: body.attemptNumber, workflowExecutionId: $execution.id, lead: body.lead } }];"
+      }
+    },
+    {
+      "name": "Start Qualification Attempt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [460, 0],
+      "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/start",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { workflowExecutionId: $json.workflowExecutionId } }}",
+        "options": { "response": { "response": { "fullResponse": true } } }
+      }
+    },
+    {
+      "name": "Claim Accepted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 0],
+      "parameters": { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.body.accepted }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" } }
+    },
+    {
+      "name": "Respond Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [930, -120],
+      "parameters": { "respondWith": "json", "responseBody": "={{ { accepted: true } }}", "options": { "responseCode": 202 } }
+    },
+    {
+      "name": "Respond Duplicate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [930, 150],
+      "parameters": { "respondWith": "json", "responseBody": "={{ { accepted: false } }}", "options": { "responseCode": 200 } }
+    },
+    {
+      "name": "Message a model",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [1170, -120],
+      "credentials": { "googlePalmApi": { "id": "REPLACE_DURING_IMPORT", "name": "Google Gemini" } },
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "list", "value": "models/gemini-3-flash-preview" },
+        "messages": { "values": [{ "content": "=You are a lead qualification assistant for a software automation company. Analyze the lead supplied in {{ JSON.stringify($('Validate and Normalize Dispatch').first().json.lead) }}. Return only valid JSON with qualificationScore, priority, category, aiSummary, and recommendedReply using the existing approved qualification rules." }] },
+        "builtInTools": {}, "options": {}
+      }
+    },
+    {
+      "name": "Parse and Validate Qualification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, -120],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "jsCode": "const correlation = $('Validate and Normalize Dispatch').first().json;\nconst raw = $json.content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();\nconst q = JSON.parse(raw);\nif (!Number.isInteger(q.qualificationScore) || q.qualificationScore < 0 || q.qualificationScore > 100) throw new Error('Invalid AI response');\nif (!['HIGH','MEDIUM','LOW'].includes(q.priority) || typeof q.category !== 'string' || typeof q.aiSummary !== 'string' || typeof q.recommendedReply !== 'string' || q.category.length > 120 || q.aiSummary.length > 1200 || q.recommendedReply.length > 1800) throw new Error('Invalid AI response');\nreturn [{ json: { ...correlation, ...q } }];"
+      }
+    },
+    {
+      "name": "Report Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1670, -160],
+      "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
+      "parameters": {
+        "method": "POST", "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/success",
+        "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ { score: $json.qualificationScore, priority: $json.priority, category: $json.category, summary: $json.aiSummary, recommendedReply: $json.recommendedReply, workflowExecutionId: $json.workflowExecutionId } }}",
+        "options": { "retry": { "maxTries": 3, "waitBetweenTries": 1000 } }
+      }
+    },
+    {
+      "name": "Prepare Failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [1420, 180],
+      "parameters": { "assignments": { "assignments": [
+        { "name": "leadId", "value": "={{ $('Validate and Normalize Dispatch').first().json.leadId }}", "type": "string" },
+        { "name": "attemptId", "value": "={{ $('Validate and Normalize Dispatch').first().json.attemptId }}", "type": "string" },
+        { "name": "workflowExecutionId", "value": "={{ $execution.id }}", "type": "string" },
+        { "name": "failureCode", "value": "INVALID_AI_RESPONSE", "type": "string" },
+        { "name": "message", "value": "Automated qualification did not complete.", "type": "string" }
+      ] }, "options": {} }
+    },
+    {
+      "name": "Report Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1670, 180],
+      "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
+      "parameters": {
+        "method": "POST", "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/failure",
+        "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ { failureCode: $json.failureCode, message: $json.message, workflowExecutionId: $json.workflowExecutionId } }}",
+        "options": { "retry": { "maxTries": 3, "waitBetweenTries": 1000 } }
+      }
+    }
+  ],
+  "connections": {
+    "Qualification Webhook": { "main": [[{ "node": "Validate and Normalize Dispatch", "type": "main", "index": 0 }]] },
+    "Validate and Normalize Dispatch": { "main": [[{ "node": "Start Qualification Attempt", "type": "main", "index": 0 }]] },
+    "Start Qualification Attempt": { "main": [[{ "node": "Claim Accepted?", "type": "main", "index": 0 }]] },
+    "Claim Accepted?": { "main": [[{ "node": "Respond Accepted", "type": "main", "index": 0 }], [{ "node": "Respond Duplicate", "type": "main", "index": 0 }]] },
+    "Respond Accepted": { "main": [[{ "node": "Message a model", "type": "main", "index": 0 }]] },
+    "Message a model": { "main": [[{ "node": "Parse and Validate Qualification", "type": "main", "index": 0 }], [{ "node": "Prepare Failure", "type": "main", "index": 0 }]] },
+    "Parse and Validate Qualification": { "main": [[{ "node": "Report Success", "type": "main", "index": 0 }], [{ "node": "Prepare Failure", "type": "main", "index": 0 }]] },
+    "Prepare Failure": { "main": [[{ "node": "Report Failure", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": []
+}

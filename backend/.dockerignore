@@ -1,0 +1,15 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+*.log
+.env
+.env.*
+!.env.example
+Dockerfile*
+README*
+src/test/
+**/surefire-reports/
+**/*.pem
+**/*.key

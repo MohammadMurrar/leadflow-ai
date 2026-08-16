@@ -1,0 +1,43 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:leadflow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  session:
+    jdbc:
+      initialize-schema: always
+    timeout: 30m
+server:
+  servlet:
+    session:
+      cookie:
+        name: LEADFLOW_SESSION
+        http-only: true
+        secure: false
+        same-site: lax
+        path: /
+leadflow:
+  frontend-origin: http://localhost:5173
+  automation:
+    api-key: test-key
+  qualification-reliability:
+    dispatcher-enabled: false
+    legacy-callback-enabled: true
+    retry-enabled: false
+    dispatcher-interval: PT1H
+    timeout-interval: PT1H
+    batch-size: 10
+    maximum-delivery-attempts: 3
+    initial-backoff: PT1S
+    maximum-backoff: PT10S
+    lease-duration: PT1M
+    dispatch-timeout: PT30M
+    processing-timeout: PT30M
+    timeout-batch-size: 20
+n8n:
+  lead-qualification-webhook-url: http://127.0.0.1:1/test-only-never-call

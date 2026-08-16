@@ -1,0 +1,26 @@
+CREATE TABLE leads (
+    id BINARY(16) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(180) NOT NULL,
+    phone VARCHAR(30),
+    company VARCHAR(140),
+    requested_service VARCHAR(120) NOT NULL,
+    estimated_budget DECIMAL(12,2),
+    desired_start_date DATE,
+    message VARCHAR(3000) NOT NULL,
+    source VARCHAR(60) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    qualification_score INT,
+    category VARCHAR(120),
+    ai_summary VARCHAR(1200),
+    recommended_reply VARCHAR(1800),
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    PRIMARY KEY (id),
+    INDEX idx_leads_status_created (status, created_at),
+    INDEX idx_leads_email (email),
+    CONSTRAINT chk_leads_score CHECK (qualification_score IS NULL OR qualification_score BETWEEN 0 AND 100)
+);
+

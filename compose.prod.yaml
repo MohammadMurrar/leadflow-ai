@@ -1,0 +1,195 @@
+name: leadflow-prod
+
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+services:
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
+    image: leadflow-web:1.0.0
+    restart: unless-stopped
+    ports:
+      - "80:8080"
+      - "443:8443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+    volumes:
+      - ./deploy/nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - letsencrypt_data:/etc/letsencrypt:ro
+      - acme_webroot:/var/www/certbot:ro
+    networks:
+      - edge
+      - application
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "-q", "-O", "/dev/null", "https://127.0.0.1:8443/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m,mode=0755
+      - /var/run:size=1m,mode=0755
+      - /tmp:size=16m,mode=1777
+      - /etc/nginx/conf.d:size=1m,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 15s
+    mem_limit: 128m
+    mem_reservation: 64m
+    cpus: 0.25
+    logging: *bounded-logging
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: leadflow-backend:1.0.0
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&connectionCollation=utf8mb4_0900_ai_ci
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      FRONTEND_ORIGIN: https://${APP_DOMAIN:?APP_DOMAIN is required}
+      SESSION_COOKIE_SECURE: "true"
+      AUTOMATION_API_KEY: ${AUTOMATION_API_KEY:?AUTOMATION_API_KEY is required}
+      QUALIFICATION_DISPATCHER_ENABLED: ${QUALIFICATION_DISPATCHER_ENABLED:-true}
+      N8N_LEAD_QUALIFICATION_WEBHOOK_URL: http://n8n:5678/webhook/lead-qualification
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC}
+    networks:
+      - application
+      - data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 45s
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 1.0
+    logging: *bounded-logging
+
+  mysql:
+    image: mysql:8.4.11
+    restart: unless-stopped
+    command:
+      - --default-time-zone=+00:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --max-allowed-packet=16M
+      - --innodb-flush-log-at-trx-commit=1
+      - --sync-binlog=1
+    environment:
+      TZ: UTC
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql/leadflow.cnf:/etc/mysql/conf.d/leadflow.cnf:ro
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping --protocol=tcp -h 127.0.0.1 -u root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 60s
+    mem_limit: 1280m
+    mem_reservation: 768m
+    cpus: 1.0
+    logging: *bounded-logging
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.33.7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      TZ: UTC
+      GENERIC_TIMEZONE: UTC
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      N8N_EDITOR_BASE_URL: http://localhost:5678/
+      WEBHOOK_URL: http://n8n:5678/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY is required}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      LEADFLOW_API_BASE_URL: http://backend:8080/api/v1
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: ${N8N_EXECUTIONS_DATA_MAX_AGE_HOURS:-168}
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: ${N8N_EXECUTIONS_DATA_PRUNE_MAX_COUNT:-1000}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - application
+      - egress
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz/readiness').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 60s
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: 0.75
+    logging: *bounded-logging
+
+  certbot:
+    image: certbot/certbot:v5.2.2
+    profiles: ["tls"]
+    volumes:
+      - letsencrypt_data:/etc/letsencrypt
+      - acme_webroot:/var/www/certbot
+    networks:
+      - edge
+    mem_limit: 256m
+    cpus: 0.25
+    logging: *bounded-logging
+
+volumes:
+  mysql_data:
+  n8n_data:
+  letsencrypt_data:
+  acme_webroot:
+
+networks:
+  edge:
+  application:
+    internal: true
+  data:
+    internal: true
+  egress:

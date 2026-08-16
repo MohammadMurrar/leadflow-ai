@@ -1,0 +1,10 @@
+[mysqld]
+default-time-zone = +00:00
+character-set-server = utf8mb4
+collation-server = utf8mb4_0900_ai_ci
+max-allowed-packet = 16M
+innodb-flush-log-at-trx-commit = 1
+sync-binlog = 1
+
+[client]
+default-character-set = utf8mb4

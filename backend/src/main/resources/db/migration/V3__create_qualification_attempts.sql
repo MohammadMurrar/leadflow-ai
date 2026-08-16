@@ -1,0 +1,50 @@
+CREATE TABLE qualification_attempts (
+    id BINARY(16) PRIMARY KEY,
+    version BIGINT NOT NULL DEFAULT 0,
+    lead_id BINARY(16) NOT NULL,
+    attempt_number INT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    active_key TINYINT GENERATED ALWAYS AS (
+        CASE WHEN status IN ('PENDING', 'PROCESSING') THEN 1 ELSE NULL END
+    ) STORED,
+    failure_code VARCHAR(40) NULL,
+    failure_message VARCHAR(300) NULL,
+    workflow_execution_id VARCHAR(100) NULL,
+    outcome_fingerprint BINARY(32) NULL,
+    dispatched_at TIMESTAMP(6) NULL,
+    started_at TIMESTAMP(6) NULL,
+    completed_at TIMESTAMP(6) NULL,
+    failed_at TIMESTAMP(6) NULL,
+    timed_out_at TIMESTAMP(6) NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    CONSTRAINT uk_qualification_attempt_lead_number UNIQUE (lead_id, attempt_number),
+    CONSTRAINT uk_qualification_attempt_active UNIQUE (lead_id, active_key),
+    CONSTRAINT fk_qualification_attempt_lead FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+    CONSTRAINT chk_qualification_attempt_status CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT')),
+    CONSTRAINT chk_qualification_attempt_failure_code CHECK (failure_code IS NULL OR failure_code IN ('WEBHOOK_DELIVERY_FAILED', 'WORKFLOW_FAILED', 'AI_PROVIDER_ERROR', 'INVALID_AI_RESPONSE', 'CALLBACK_REJECTED', 'TIMEOUT', 'UNKNOWN')),
+    INDEX idx_qualification_attempt_status_updated (status, updated_at),
+    INDEX idx_qualification_attempt_lead_created (lead_id, created_at DESC)
+);
+
+CREATE TABLE qualification_dispatch_outbox (
+    id BINARY(16) PRIMARY KEY,
+    version BIGINT NOT NULL DEFAULT 0,
+    attempt_id BINARY(16) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    delivery_count INT NOT NULL DEFAULT 0,
+    available_at TIMESTAMP(6) NOT NULL,
+    locked_at TIMESTAMP(6) NULL,
+    lock_expires_at TIMESTAMP(6) NULL,
+    locked_by VARCHAR(100) NULL,
+    delivered_at TIMESTAMP(6) NULL,
+    last_failure_code VARCHAR(40) NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    CONSTRAINT uk_qualification_outbox_attempt UNIQUE (attempt_id),
+    CONSTRAINT fk_qualification_outbox_attempt FOREIGN KEY (attempt_id) REFERENCES qualification_attempts(id) ON DELETE CASCADE,
+    CONSTRAINT chk_qualification_outbox_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'DELIVERED', 'FAILED')),
+    CONSTRAINT chk_qualification_outbox_delivery_count CHECK (delivery_count >= 0),
+    INDEX idx_qualification_outbox_available (status, available_at),
+    INDEX idx_qualification_outbox_lock_expiry (status, lock_expires_at)
+);
