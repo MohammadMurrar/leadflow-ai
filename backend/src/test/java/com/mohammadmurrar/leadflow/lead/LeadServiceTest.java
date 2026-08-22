@@ -34,8 +34,13 @@ class LeadServiceTest {
     @Test
     void rejectsDuplicateEmailWithinTwentyFourHours() {
         service.create(request("duplicate@example.com"));
-        assertThatThrownBy(() -> service.create(request("DUPLICATE@example.com")))
-                .isInstanceOf(ConflictException.class);
+        long leadCount = leads.count();
+
+        assertThatThrownBy(() -> service.create(request("  DUPLICATE@EXAMPLE.COM  ")))
+                .isInstanceOf(DuplicateLeadException.class)
+                .hasMessage("A recent lead already exists for this email")
+                .hasMessageNotContaining("duplicate@example.com");
+        assertThat(leads.count()).isEqualTo(leadCount);
     }
 
     @Test

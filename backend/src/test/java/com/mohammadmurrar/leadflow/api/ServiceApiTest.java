@@ -92,6 +92,10 @@ class ServiceApiTest {
         mockMvc.perform(post("/api/v1/leads").contentType("application/json")
                         .content(leadJson("catalog-contract@example.com", offering.getId(), null)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.requestedService").value("Authoritative Service"));
+        mockMvc.perform(post("/api/v1/leads").contentType("application/json")
+                        .content(leadJson("CATALOG-CONTRACT@EXAMPLE.COM", offering.getId(), null)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("A recent lead already exists for this email"));
         var linked = leads.findAll().stream().filter(lead -> lead.getEmail().equals("catalog-contract@example.com"))
                 .findFirst().orElseThrow();
         org.assertj.core.api.Assertions.assertThat(linked.getService().getId()).isEqualTo(offering.getId());

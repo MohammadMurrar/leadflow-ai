@@ -146,6 +146,53 @@ Using a fresh browser profile:
 
 Nginx rate-limits only POST `/api/v1/auth/login`, keyed by the direct peer address, to an average five requests per minute with a burst of five; excessive requests return 429. It does not trust arbitrary `X-Forwarded-For`. If a CDN is later added, configure real-IP handling only for that provider's verified ranges.
 
+## Public inquiry surface and CSRF
+
+The public surface is limited to:
+
+- `/inquiry`
+- `GET /api/v1/public/inquiry-config`
+- `POST /api/v1/public/leads`
+
+No other `/api/v1/public/**` route is anonymously authorized. Administrative APIs remain ADMIN-only. Automation callbacks remain API-key protected on the private application network and return 404 at the public Nginx edge.
+
+The same-origin browser submission sequence is:
+
+1. Load `/inquiry` and the public configuration.
+2. Obtain a CSRF token through `GET /api/v1/auth/csrf`.
+3. Retain the corresponding CSRF cookie.
+4. Send the returned token in the `X-XSRF-TOKEN` header.
+5. Submit JSON to `/api/v1/public/leads`.
+
+A missing or invalid token returns 403. CSRF is same-origin protection, not bot protection. Do not add a CSRF exemption for public inquiry submission without a separate security review.
+
+Nginx applies dedicated controls at the exact `location = /api/v1/public/leads`. Only POST generates a public-inquiry rate-limit key. The key is the direct peer address, the average rate is `5r/m`, and `burst=5 nodelay` permits a bounded burst; excess requests return 429. Request bodies are limited to `16k`; excess bodies return 413. Edge responses include `Cache-Control: no-store`. Other API routes retain the global 1 MB body limit, and login retains its separate rate-limit zone.
+
+The rate limiter does not trust arbitrary `X-Forwarded-For`. If a CDN or load balancer is introduced, configure real-IP handling only for verified provider address ranges before using a reconstructed client IP as the rate-limit key.
+
+Do not log public request bodies, lead PII, CSRF tokens, or cookies. Nginx access logs may contain the peer IP, route, status, user agent, and timing; apply an approved retention policy. Monitor aggregate status and volume data rather than form contents.
+
+## Public inquiry verification checklist
+
+Use controlled, non-customer test data. Prefer invalid or otherwise non-persisting requests when checking edge controls, and do not create uncontrolled real leads while verifying rate limits.
+
+- [ ] Anonymous `/inquiry` renders without initializing the administrative session workflow.
+- [ ] Configuration exposes only workspace name, optional description, and active service IDs/names.
+- [ ] A valid-CSRF submission returns 202 and a generic acknowledgement.
+- [ ] Missing and invalid CSRF tokens return 403.
+- [ ] Duplicate normalized email and filled honeypot submissions return the generic acknowledgement without additional lead, notification, attempt, or outbox records.
+- [ ] Unknown and inactive service IDs return indistinguishable safe 400 responses.
+- [ ] Unsupported media returns the native safe 415 response.
+- [ ] A missing JSON body returns a safe structured 400 response.
+- [ ] A body over 16 KB returns 413 at the exact public submission location.
+- [ ] Controlled excess POST requests return 429 without creating uncontrolled leads.
+- [ ] Neighboring public paths and method combinations remain 401.
+- [ ] `/api/v1/automation` and `/actuator` remain 404 at the public edge.
+- [ ] Administrative routes remain authentication-, role-, and CSRF-protected.
+- [ ] One controlled end-to-end inquiry produces the lead, notification, qualification attempt, transactional outbox delivery, n8n execution, and correlated qualification result.
+
+Do not use real customer emails or other PII in verification requests.
+
 ## Health, restart, and logs
 
 Inspect private health from inside the stack:
@@ -161,7 +208,7 @@ Readiness includes MySQL. Liveness excludes n8n and Gemini. No other Actuator en
 
 Docker JSON logs rotate at 10 MB with five files. Keep timestamps in UTC. Never enable request-body, SQL-parameter, cookie, session, CSRF, automation-key, Gemini prompt/response, or raw lead-payload logging. Use attempt UUIDs for safe correlation.
 
-Monitor disk space, container health, oldest pending outbox work, failed/timed-out attempts, certificate expiry, backup age, and off-host transfer success.
+Monitor aggregate public inquiry volume and rates of 400, 403, 413, 415, 429, and 5xx responses. Also monitor disk space, container health, oldest pending transactional outbox work, failed/timed-out qualification attempts, certificate expiry, backup age, and off-host transfer success.
 
 ## Encrypted backup and off-host handoff
 
@@ -226,4 +273,11 @@ Before upgrading, review release notes, produce and transfer an encrypted backup
 - No Redis, queue mode, Kubernetes, or automatic failover is included.
 - Actual TLS/security verification requires real DNS and a VPS.
 - The off-VPS provider remains undecided and is a deployment blocker.
-- The approximately 813 KB frontend bundle warning remains; route-level lazy loading is deferred to a focused performance step.
+- Public and administrative routes are lazy-loaded separately; continue monitoring production asset size during frontend changes.
+- The public inquiry is one hosted same-origin page; iframe embedding and cross-origin integration APIs are not supported.
+- CAPTCHA is not included initially.
+- Public inquiry rate limiting is in-memory state within one Nginx instance.
+- Users behind the same NAT share one IP quota, while distributed bots can use multiple IP addresses.
+- There is no multi-workspace public tenant slug.
+- The frontend has no automated test runner yet.
+- Actual TLS and rate-limit behavior must be validated at a production-like edge with certificates.

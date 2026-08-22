@@ -126,6 +126,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/automation/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/public/inquiry-config").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/public/leads").permitAll()
                         .requestMatchers("/api/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .exceptionHandling(configuration -> configuration

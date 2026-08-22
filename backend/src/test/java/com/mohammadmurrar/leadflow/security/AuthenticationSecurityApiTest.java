@@ -144,6 +144,13 @@ class AuthenticationSecurityApiTest {
                         .with(anonymous()).session(session).contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
 
+        mvc.perform(post("/api/v1/automation/leads/11111111-1111-1111-1111-111111111111/qualification")
+                        .with(anonymous()).header("X-Automation-Key", "invalid-key")
+                        .contentType("application/json")
+                        .content("{\"score\":80,\"priority\":\"HIGH\",\"category\":\"qualified\","
+                                + "\"summary\":\"Safe summary\",\"recommendedReply\":\"Safe reply\"}"))
+                .andExpect(status().isUnauthorized());
+
         mvc.perform(get("/api/v1/dashboard/stats").with(anonymous())
                         .header("X-Automation-Key", "test-key"))
                 .andExpect(status().isUnauthorized());

@@ -1,6 +1,5 @@
 package com.mohammadmurrar.leadflow.lead;
 
-import com.mohammadmurrar.leadflow.common.ConflictException;
 import com.mohammadmurrar.leadflow.lead.api.*;
 import com.mohammadmurrar.leadflow.notification.NotificationService;
 import com.mohammadmurrar.leadflow.qualification.*;
@@ -49,12 +48,15 @@ class LeadServiceNotificationTest {
     }
 
     @Test
-    void preservesDuplicateEmailConflictBehavior() {
+    void rejectsNormalizedDuplicateWithoutCreatingDownstreamRecords() {
         when(repository.existsByEmailAndCreatedAtAfter(eq("duplicate@example.com"), any(Instant.class)))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> service.create(request("DUPLICATE@example.com")))
-                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.create(request("  DUPLICATE@EXAMPLE.COM  ")))
+                .isInstanceOf(DuplicateLeadException.class)
+                .hasMessage("A recent lead already exists for this email")
+                .hasMessageNotContaining("duplicate@example.com");
+        verify(repository).existsByEmailAndCreatedAtAfter(eq("duplicate@example.com"), any(Instant.class));
         verify(repository, never()).save(any());
         verifyNoInteractions(notificationService, qualificationAttemptService);
     }

@@ -40,9 +40,9 @@ public class LeadService {
 
     @Transactional
     public LeadResponse create(CreateLeadRequest request) {
-        String email = request.email().trim().toLowerCase();
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
         if (repository.existsByEmailAndCreatedAtAfter(email, Instant.now().minus(Duration.ofHours(24)))) {
-            throw new ConflictException("A recent lead already exists for this email");
+            throw new DuplicateLeadException();
         }
         String source = request.source() == null || request.source().isBlank() ? "website" : request.source();
         boolean hasServiceId = request.serviceId() != null;
