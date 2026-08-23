@@ -2,6 +2,7 @@ package com.mohammadmurrar.leadflow.lead;
 
 import com.mohammadmurrar.leadflow.qualification.api.QualificationDispatchRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -32,13 +33,16 @@ public class LeadQualificationWebhookClient {
     }
 
     public boolean send(QualificationDispatchRequest request) {
-        return restClient.post()
+        var status = restClient.post()
                     .uri(webhookUrl)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(request)
                     .retrieve()
                     .toBodilessEntity()
-                    .getStatusCode()
-                    .is2xxSuccessful();
+                    .getStatusCode();
+        if (status != HttpStatus.ACCEPTED) {
+            throw new IllegalStateException("Unexpected webhook acknowledgement status: " + status.value());
+        }
+        return true;
     }
 }

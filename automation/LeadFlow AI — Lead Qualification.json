@@ -24,6 +24,7 @@
       "typeVersion": 4.5,
       "position": [460, 0],
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
+      "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/start",
@@ -33,6 +34,23 @@
         "specifyBody": "json",
         "jsonBody": "={{ { workflowExecutionId: $json.workflowExecutionId } }}",
         "options": { "response": { "response": { "fullResponse": true } } }
+      }
+    },
+    {
+      "name": "Respond Start Failure",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [700, 250],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"rejected\"}",
+        "options": {
+          "responseCode": 502,
+          "responseHeaders": { "entries": [
+            { "name": "Cache-Control", "value": "no-store" },
+            { "name": "Content-Type", "value": "application/json" }
+          ] }
+        }
       }
     },
     {
@@ -84,12 +102,15 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [1670, -160],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
       "parameters": {
         "method": "POST", "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/success",
         "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ { score: $json.qualificationScore, priority: $json.priority, category: $json.category, summary: $json.aiSummary, recommendedReply: $json.recommendedReply, workflowExecutionId: $json.workflowExecutionId } }}",
-        "options": { "retry": { "maxTries": 3, "waitBetweenTries": 1000 } }
+        "options": {}
       }
     },
     {
@@ -110,19 +131,22 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [1670, 180],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
       "parameters": {
         "method": "POST", "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/failure",
         "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ { failureCode: $json.failureCode, message: $json.message, workflowExecutionId: $json.workflowExecutionId } }}",
-        "options": { "retry": { "maxTries": 3, "waitBetweenTries": 1000 } }
+        "options": {}
       }
     }
   ],
   "connections": {
     "Qualification Webhook": { "main": [[{ "node": "Validate and Normalize Dispatch", "type": "main", "index": 0 }]] },
     "Validate and Normalize Dispatch": { "main": [[{ "node": "Start Qualification Attempt", "type": "main", "index": 0 }]] },
-    "Start Qualification Attempt": { "main": [[{ "node": "Claim Accepted?", "type": "main", "index": 0 }]] },
+    "Start Qualification Attempt": { "main": [[{ "node": "Claim Accepted?", "type": "main", "index": 0 }], [{ "node": "Respond Start Failure", "type": "main", "index": 0 }]] },
     "Claim Accepted?": { "main": [[{ "node": "Respond Accepted", "type": "main", "index": 0 }], [{ "node": "Respond Duplicate", "type": "main", "index": 0 }]] },
     "Respond Accepted": { "main": [[{ "node": "Message a model", "type": "main", "index": 0 }]] },
     "Message a model": { "main": [[{ "node": "Parse and Validate Qualification", "type": "main", "index": 0 }], [{ "node": "Prepare Failure", "type": "main", "index": 0 }]] },
