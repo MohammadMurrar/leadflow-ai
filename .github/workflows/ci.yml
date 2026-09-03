@@ -96,6 +96,7 @@ jobs:
             -out "$cert_dir/live/leadflow.example.invalid/fullchain.pem" >/dev/null 2>&1
           docker run --rm \
             -e APP_DOMAIN=leadflow.example.invalid \
+            --add-host backend:127.0.0.1 \
             --read-only \
             --tmpfs /var/cache/nginx:size=16m,mode=0755,uid=101,gid=101 \
             --tmpfs /var/run:size=1m,mode=0755,uid=101,gid=101 \
