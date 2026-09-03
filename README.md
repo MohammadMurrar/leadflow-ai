@@ -64,6 +64,8 @@ Local defaults are development-only. Override the automation key and database cr
 
 The public inquiry page is available at `/inquiry`. It requires a running backend, a database with Flyway complete, available workspace settings, and at least one active service. Qualification dispatch may remain disabled for UI-only testing.
 
+Inquiry email notifications prefer the explicit recipients configured in workspace settings. In the current single-workspace application, an empty recipient list falls back to all enabled ADMIN account emails in deterministic order. Recipient addresses remain private and are never exposed by public inquiry configuration or acknowledgements. Real delivery still requires SMTP provider configuration. When workspace ownership and onboarding are introduced, the verified workspace-owner email should become the default recipient.
+
 ## API areas
 
 - `/api/v1/auth` — CSRF, login, current session, and logout

@@ -10,15 +10,15 @@ Use one Linux VPS with at least 2 vCPU, 4 GB RAM, adequate SSD storage, and swap
 
 | Service | Pinned image | Exposure |
 |---|---|---|
-| web | `nginxinc/nginx-unprivileged:1.28.0-alpine` | host ports 80 and 443 |
-| backend | Maven 3.9.9/Temurin 21 build; Temurin 21.0.5+11 JRE Alpine runtime | private |
+| web | project-built `nginxinc/nginx-unprivileged:1.30.4-alpine3.24` with current Alpine security updates | host ports 80 and 443 |
+| backend | Maven 3.9.9/Temurin 21 build; Temurin 21.0.12+8 JRE Alpine 3.24 runtime with current Alpine security updates | private |
 | mysql | `mysql:8.4.11` | private |
-| n8n | `docker.n8n.io/n8nio/n8n:2.33.7` | private webhook; editor at `127.0.0.1:5678` |
+| n8n | `n8nio/n8n:2.37.7` (Docker Hardened Images Alpine 3.24 base) | private webhook; editor at `127.0.0.1:5678` |
 | certbot | `certbot/certbot:v5.2.2` | one-shot/profile service |
 
 Record the resolved image digests after the first verified build. Review release notes before changing any pin.
 
-The edge, application, data, and n8n-egress networks are separated. MySQL joins only data. Backend joins application and data. n8n joins application and egress. Web joins edge and application. Public Nginx returns 404 for `/api/v1/automation` and `/actuator` before its general API proxy.
+The edge, application, data, and restricted-egress networks are separated. MySQL joins only data. Backend joins application, data, and egress so it can reach the approved SMTP endpoint. n8n joins application and egress for the approved AI provider. Web joins edge and application. Enforce destination-level egress allowlists in the host firewall or deployment platform because a Compose bridge cannot restrict destinations by hostname. Public Nginx returns 404 for `/api/v1/automation` and `/actuator` before its general API proxy.
 
 ## Host preparation
 
@@ -39,6 +39,9 @@ install -m 600 .env.example .env
 Replace every placeholder with independent random values. Required names are:
 
 - `APP_DOMAIN`
+- `LEADFLOW_PUBLIC_FRONTEND_URL`, the public HTTPS frontend origin only (for example,
+  `https://app.your-domain.com`). It must not contain a path, query, fragment, secret, or reset
+  token. TLS remains the reverse proxy/load balancer's responsibility.
 - `ACME_EMAIL`
 - `MYSQL_DATABASE`
 - `DB_USERNAME`
@@ -46,6 +49,9 @@ Replace every placeholder with independent random values. Required names are:
 - `MYSQL_ROOT_PASSWORD`
 - `AUTOMATION_API_KEY`
 - `N8N_ENCRYPTION_KEY`
+- `PASSWORD_RESET_ACTIVE_KEY_VERSION` and `PASSWORD_RESET_HMAC_KEYS`
+- `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USERNAME`, and `EMAIL_SMTP_PASSWORD`
+- `EMAIL_SENDER_ADDRESS`, plus the optional display name and reply-to address
 
 Never store the administrator password, Gemini credential, certificate private key, session ID, CSRF token, or real workflow credential in Git. Back up `N8N_ENCRYPTION_KEY` separately in the approved secret store; restored n8n credentials cannot be decrypted without it.
 
@@ -60,6 +66,10 @@ docker compose -f compose.prod.yaml build backend web
 
 Do not publish or copy a fully rendered Compose configuration because it contains secrets. Confirm only web publishes 80/443 and n8n publishes 5678 to loopback. Backend and MySQL must have no `ports` entry.
 
+For local manual testing only, set `LEADFLOW_PUBLIC_FRONTEND_URL=http://localhost:4173` together
+with `LEADFLOW_PUBLIC_FRONTEND_ALLOW_HTTP_LOOPBACK=true` in the backend process environment.
+Non-loopback HTTP is rejected. Changing either setting requires a controlled backend restart.
+
 ## Database, Flyway, and startup order
 
 Initially keep dispatch disabled:
@@ -71,7 +81,7 @@ docker compose -f compose.prod.yaml up -d backend
 docker compose -f compose.prod.yaml ps
 ```
 
-Flyway applies V1–V8 before Hibernate validates the schema. Use one backend instance for migrations. Inspect logs without dumping environment values. Verify MySQL version, UTC, charset, and collation with an authenticated query from inside the MySQL container.
+Flyway applies V1–V14 before Hibernate validates the schema. Use one backend instance for migrations. Inspect logs without dumping environment values. Verify MySQL version, UTC, charset, and collation with an authenticated query from inside the MySQL container.
 
 Take and transfer an encrypted baseline backup before future migrations or image upgrades.
 
@@ -82,7 +92,7 @@ This is only for a fresh database. The script runs a non-web backend container, 
 ```bash
 export ADMIN_BOOTSTRAP_EMAIL='administrator@example.com'
 export ADMIN_BOOTSTRAP_DISPLAY_NAME='LeadFlow Administrator'
-./deploy/scripts/bootstrap-admin.sh
+bash ./deploy/scripts/bootstrap-admin.sh
 unset ADMIN_BOOTSTRAP_EMAIL ADMIN_BOOTSTRAP_DISPLAY_NAME
 ```
 
@@ -101,7 +111,12 @@ Open `http://localhost:5678`, complete n8n owner setup, and import `automation/L
 - `LeadFlow Automation Key` to header `X-Automation-Key`, matching `AUTOMATION_API_KEY`.
 - `Google Gemini` to the approved Gemini credential.
 
-Confirm `LEADFLOW_API_BASE_URL=http://backend:8080/api/v1`. Test private start, success, and failure callbacks before activating the workflow. Run `n8n audit` after credential binding and review credential, node, database, webhook, and instance findings.
+Keep the editor owner-only and reachable solely through loopback plus the
+administrator tunnel/VPN. Do not add arbitrary n8n users, unreviewed workflows,
+SSH functionality, or email nodes during the controlled pilot without a new
+security and dependency review.
+
+The repository workflow uses the fixed private URL `http://backend:8080/api/v1`; it does not read process environment values from nodes. Test private start, success, and failure callbacks before activating the workflow. Run `n8n audit` after credential binding and review credential, node, database, webhook, and instance findings.
 
 Successful execution payloads are not retained. Failed executions are bounded by age and count. Review privacy needs before increasing those limits.
 
@@ -119,7 +134,7 @@ Confirm DNS and that port 80 is free. Nginx is not started with a missing certif
 
 ```bash
 export APP_DOMAIN ACME_EMAIL
-./deploy/scripts/init-tls.sh
+bash ./deploy/scripts/init-tls.sh
 ```
 
 Verify HTTP redirect, HTTPS, certificate chain, static headers, and these non-revealing rejections:
@@ -130,6 +145,10 @@ curl -i "https://$APP_DOMAIN/api/v1/automation/"
 ```
 
 Both public paths must return 404.
+
+The issuance and renewal scripts restrict certificate directories/files to
+root and the unprivileged Nginx container group (GID 101). Do not make private
+keys world-readable to work around a container permission error.
 
 ## Authentication and proxy checks
 
@@ -144,15 +163,18 @@ Using a fresh browser profile:
 7. Verify an automation key cannot access administrative APIs and a browser session cannot replace the automation key.
 8. Verify current pages, searches, polling, notifications, analytics, and details remain functional with no console errors.
 
-Nginx rate-limits only POST `/api/v1/auth/login`, keyed by the direct peer address, to an average five requests per minute with a burst of five; excessive requests return 429. It does not trust arbitrary `X-Forwarded-For`. If a CDN is later added, configure real-IP handling only for that provider's verified ranges.
+Nginx separately rate-limits POST `/api/v1/auth/login` (five requests per minute, burst five) and password-reset initiation (three requests per minute, burst three), keyed by the direct peer address; excessive requests return 429. Confirmation is not rate-limited so a valid token is not consumed by shared-IP initiation abuse. The edge does not trust arbitrary `X-Forwarded-For`. If a CDN is later added, configure real-IP handling only for that provider's verified ranges.
 
 ## Public inquiry surface and CSRF
 
 The public surface is limited to:
 
 - `/inquiry`
+- `/inquiry/{workspaceSlug}`
 - `GET /api/v1/public/inquiry-config`
 - `POST /api/v1/public/leads`
+- `GET /api/v1/public/workspaces/{workspaceSlug}/inquiry-config`
+- `POST /api/v1/public/workspaces/{workspaceSlug}/leads`
 
 No other `/api/v1/public/**` route is anonymously authorized. Administrative APIs remain ADMIN-only. Automation callbacks remain API-key protected on the private application network and return 404 at the public Nginx edge.
 
@@ -218,7 +240,7 @@ Configure an age public recipient and explicit staging directory:
 export AGE_RECIPIENT='age1...public-recipient...'
 export BACKUP_DIR='/srv/leadflow/backups'
 export BACKUP_RETENTION_DAYS=14
-./deploy/scripts/backup.sh
+bash ./deploy/scripts/backup.sh
 ```
 
 The script creates a transactionally consistent MySQL dump, briefly stops n8n for a consistent data archive, encrypts the combined archive, creates a SHA-256 checksum, and prunes only validated matching files inside the resolved backup directory. It deliberately excludes `N8N_ENCRYPTION_KEY`.
@@ -233,7 +255,7 @@ Restore first into an isolated Compose project/host. The script creates a safety
 export AGE_RECIPIENT='age1...public-recipient...'
 export AGE_IDENTITY_FILE='/root/secure/leadflow-backup-key.txt'
 export BACKUP_DIR='/srv/leadflow/backups'
-./deploy/scripts/restore.sh /absolute/path/to/leadflow-TIMESTAMP.tar.gz.age
+bash ./deploy/scripts/restore.sh /absolute/path/to/leadflow-TIMESTAMP.tar.gz.age
 ```
 
 The script verifies the checksum, requires typing the exact database name, creates a safety backup, stops backend and n8n, restores both data sets, and intentionally leaves operational services stopped.
@@ -241,7 +263,7 @@ The script verifies the checksum, requires typing the exact database name, creat
 Before resuming:
 
 1. Preserve the failed pre-restore state and safety backup off-host.
-2. Validate `flyway_schema_history` through V8.
+2. Validate `flyway_schema_history` through V14.
 3. Start one backend with dispatch disabled and confirm Flyway, Hibernate, readiness, users, sessions, attempts, and outbox.
 4. Start n8n and verify credential decryption and workflow state.
 5. Manually re-enable dispatch only after consistency checks.
@@ -251,8 +273,8 @@ Never run restore from normal startup or unattended automation.
 ## Certificate renewal
 
 ```bash
-./deploy/scripts/renew-tls.sh --dry-run
-./deploy/scripts/renew-tls.sh
+bash ./deploy/scripts/renew-tls.sh --dry-run
+bash ./deploy/scripts/renew-tls.sh
 ```
 
 Schedule the real script with a root-controlled systemd timer or cron. Nginx reloads only after successful real renewal. Monitor expiry separately.
@@ -278,6 +300,6 @@ Before upgrading, review release notes, produce and transfer an encrypted backup
 - CAPTCHA is not included initially.
 - Public inquiry rate limiting is in-memory state within one Nginx instance.
 - Users behind the same NAT share one IP quota, while distributed bots can use multiple IP addresses.
-- There is no multi-workspace public tenant slug.
-- The frontend has no automated test runner yet.
-- Actual TLS and rate-limit behavior must be validated at a production-like edge with certificates.
+- Public workspace slugs deliberately expose only active-workspace branding and service options; owner provisioning remains offline and controlled.
+- CSP permits inline style attributes because the charting/layout libraries generate runtime style attributes. Inline scripts, inline style elements, and `unsafe-eval` remain prohibited.
+- Actual certificate-chain behavior must be validated again with the deployment platform's real certificate before traffic is accepted.
