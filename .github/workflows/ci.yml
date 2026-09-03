@@ -16,8 +16,8 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: "21"
@@ -32,8 +32,8 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.23.1"
           cache: npm
@@ -41,6 +41,12 @@ jobs:
       - name: Install locked dependencies
         working-directory: frontend
         run: npm ci
+      - name: Frontend component tests
+        working-directory: frontend
+        run: npm run test:run
+      - name: Production dependency audit
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
       - name: TypeScript and production build
         working-directory: frontend
         env:
@@ -54,11 +60,52 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify immutable migration checksums
+        working-directory: backend/src/main/resources/db/migration
+        run: |
+          sha256sum -c <<'CHECKSUMS'
+          d96bc229235473764ee397edd551f5489792a363ef5c23ca7e016072141f8850  V1__create_leads.sql
+          fe3f92747de1644a946a959aca5a3e9dd04ba300db69dc00894a368d8dea8d77  V2__create_notifications.sql
+          2e3dbcb6fd50a790d93cff005a9004e98e8d56b266a202bda1c64d7a7605ea03  V3__create_qualification_attempts.sql
+          e767d4e5ed863eb836842264b894dc53ce99f81f8c44a61506e6a891d67cac38  V4__improve_qualification_outbox_claim_index.sql
+          d4a66c5a9f5ea6f289d140c66a62b963ebe8eba479464adddefdb7e0e1b49eb5  V5__create_services.sql
+          617578d3142a2be6c0d6b8931962b8d6b0e87b16657851dfd0c6cf1ec2b53808  V6__create_workspace_settings.sql
+          23519ed4cd8d6dffe87421047e021e91bdcb78f64419a2edef3438c9469729b2  V7__create_users.sql
+          7f322afa4c6941a131eaff52cf06e6357a6900d0c2843f4d5be2e139b1f92da1  V8__create_spring_session_tables.sql
+          18a17c355a1dd07d6ec778bebcebb92898056a989fef4ea4e0f6c5dc8b5ea166  V9__extend_workspace_settings.sql
+          36757e3d0ea1ca3350c6ec3afc4f50e6795532c1419d269e67af001c2505ac95  V10__create_email_outbox.sql
+          6e65b3a7202996ce48c20d7a8bdc7d042ea96bed32dff8f6bea2e7fa0e815965  V11__create_password_reset_requests.sql
+          afa7348bd644c1c700ae4c62ad57c7b19487f22560cf6ee36bfcfc5ed716c6fd  V12__create_workspace_foundation.sql
+          a448a049dd5bb97bbc3bafc25f5353127e77b45a2dfee571a59aea7c33f542a1  V13__make_workspace_settings_per_workspace.sql
+          f3d7dfb029a66c1fdfb08b0fb765f98365fc63674f163e480b71680a91410afc  V14__make_service_names_unique_per_workspace.sql
+          CHECKSUMS
+          test -z "$(find . -maxdepth 1 -type f -name 'V15__*.sql' -print -quit)"
       - name: Build backend image
         run: docker build --tag leadflow-backend:ci backend
       - name: Build frontend image
         run: docker build --build-arg VITE_API_BASE_URL=/api/v1 --tag leadflow-web:ci frontend
+      - name: Validate Nginx production configuration
+        run: |
+          cert_dir="$(mktemp -d)"
+          trap 'rm -rf "$cert_dir"' EXIT
+          mkdir -p "$cert_dir/live/leadflow.example.invalid"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=leadflow.example.invalid' \
+            -keyout "$cert_dir/live/leadflow.example.invalid/privkey.pem" \
+            -out "$cert_dir/live/leadflow.example.invalid/fullchain.pem" >/dev/null 2>&1
+          docker run --rm \
+            -e APP_DOMAIN=leadflow.example.invalid \
+            --read-only \
+            --tmpfs /var/cache/nginx:size=16m,mode=0755,uid=101,gid=101 \
+            --tmpfs /var/run:size=1m,mode=0755,uid=101,gid=101 \
+            --tmpfs /tmp:size=16m,mode=1777 \
+            --tmpfs /etc/nginx/conf.d:size=1m,mode=0755,uid=101,gid=101 \
+            --security-opt no-new-privileges:true \
+            --cap-drop ALL \
+            -v "$PWD/deploy/nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro" \
+            -v "$cert_dir:/etc/letsencrypt:ro" \
+            leadflow-web:ci nginx -t
       - name: Validate production Compose
         env:
           APP_DOMAIN: leadflow.example.invalid
@@ -68,19 +115,26 @@ jobs:
           MYSQL_ROOT_PASSWORD: different-safe-ci-placeholder-only
           AUTOMATION_API_KEY: safe-ci-automation-placeholder-only
           N8N_ENCRYPTION_KEY: safe-ci-n8n-placeholder-only
+          LEADFLOW_PUBLIC_FRONTEND_URL: https://leadflow.example.invalid
+          PASSWORD_RESET_ACTIVE_KEY_VERSION: v1
+          PASSWORD_RESET_HMAC_KEYS: v1=c2FmZS1jaS1vbmx5LXBhc3N3b3JkLXJlc2V0LWtleS0zMmJ5dGVz
+          EMAIL_SMTP_HOST: smtp.example.invalid
+          EMAIL_SMTP_USERNAME: safe-ci-smtp-user
+          EMAIL_SMTP_PASSWORD: safe-ci-smtp-password
+          EMAIL_SENDER_ADDRESS: notifications@example.invalid
         run: docker compose -f compose.prod.yaml config --quiet
 
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
 
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0

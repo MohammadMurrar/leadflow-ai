@@ -19,6 +19,7 @@ docker compose --profile tls -f "$COMPOSE_FILE" run --rm --no-deps certbot \
   renew --webroot --webroot-path /var/www/certbot "${extra_args[@]}"
 
 if [[ ${#extra_args[@]} -eq 0 ]]; then
+  bash "$SCRIPT_DIR/secure-tls-permissions.sh"
   docker compose -f "$COMPOSE_FILE" exec -T web nginx -s reload
   echo "Certificate renewal completed and Nginx reloaded."
 else

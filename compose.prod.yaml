@@ -38,10 +38,10 @@ services:
       start_period: 15s
     read_only: true
     tmpfs:
-      - /var/cache/nginx:size=16m,mode=0755
-      - /var/run:size=1m,mode=0755
+      - /var/cache/nginx:size=16m,mode=0755,uid=101,gid=101
+      - /var/run:size=1m,mode=0755,uid=101,gid=101
       - /tmp:size=16m,mode=1777
-      - /etc/nginx/conf.d:size=1m,mode=0755
+      - /etc/nginx/conf.d:size=1m,mode=0755,uid=101,gid=101
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -64,14 +64,28 @@ services:
       DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       FRONTEND_ORIGIN: https://${APP_DOMAIN:?APP_DOMAIN is required}
-      SESSION_COOKIE_SECURE: "true"
+      LEADFLOW_PUBLIC_FRONTEND_URL: ${LEADFLOW_PUBLIC_FRONTEND_URL:?LEADFLOW_PUBLIC_FRONTEND_URL is required}
       AUTOMATION_API_KEY: ${AUTOMATION_API_KEY:?AUTOMATION_API_KEY is required}
+      PASSWORD_RESET_ENABLED: "true"
+      PASSWORD_RESET_ACTIVE_KEY_VERSION: ${PASSWORD_RESET_ACTIVE_KEY_VERSION:?PASSWORD_RESET_ACTIVE_KEY_VERSION is required}
+      PASSWORD_RESET_HMAC_KEYS: ${PASSWORD_RESET_HMAC_KEYS:?PASSWORD_RESET_HMAC_KEYS is required}
+      EMAIL_DELIVERY_ENABLED: "true"
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:?EMAIL_SMTP_HOST is required}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-587}
+      EMAIL_SMTP_USERNAME: ${EMAIL_SMTP_USERNAME:?EMAIL_SMTP_USERNAME is required}
+      EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD:?EMAIL_SMTP_PASSWORD is required}
+      EMAIL_SMTP_AUTH: "true"
+      EMAIL_SMTP_START_TLS: "true"
+      EMAIL_SENDER_ADDRESS: ${EMAIL_SENDER_ADDRESS:?EMAIL_SENDER_ADDRESS is required}
+      EMAIL_SENDER_DISPLAY_NAME: ${EMAIL_SENDER_DISPLAY_NAME:-LeadFlow}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
       QUALIFICATION_DISPATCHER_ENABLED: ${QUALIFICATION_DISPATCHER_ENABLED:-true}
       N8N_LEAD_QUALIFICATION_WEBHOOK_URL: http://n8n:5678/webhook/lead-qualification
       JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC}
     networks:
       - application
       - data
+      - egress
     depends_on:
       mysql:
         condition: service_healthy
@@ -124,7 +138,7 @@ services:
     logging: *bounded-logging
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n:2.33.7
+    image: n8nio/n8n:2.37.7
     restart: unless-stopped
     ports:
       - "127.0.0.1:5678:5678"
@@ -141,8 +155,7 @@ services:
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_PERSONALIZATION_ENABLED: "false"
-      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
-      LEADFLOW_API_BASE_URL: http://backend:8080/api/v1
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
       EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
@@ -162,6 +175,8 @@ services:
       start_period: 45s
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     stop_grace_period: 60s
     mem_limit: 1g
     mem_reservation: 512m

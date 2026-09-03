@@ -4,8 +4,9 @@ COPY pom.xml ./
 COPY src ./src
 RUN mvn --batch-mode --no-transfer-progress clean package
 
-FROM eclipse-temurin:21.0.5_11-jre-alpine
-RUN addgroup -S leadflow -g 10001 \
+FROM eclipse-temurin:21.0.12_8-jre-alpine-3.24
+RUN apk upgrade --no-cache \
+    && addgroup -S leadflow -g 10001 \
     && adduser -S leadflow -u 10001 -G leadflow
 WORKDIR /app
 COPY --from=build --chown=leadflow:leadflow /workspace/target/leadflow-api-0.1.0.jar app.jar

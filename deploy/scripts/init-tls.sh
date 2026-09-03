@@ -21,5 +21,7 @@ docker compose --profile tls -f "$COMPOSE_FILE" run --rm --no-deps -p 80:80 cert
   certonly --standalone --non-interactive --agree-tos \
   --email "$ACME_EMAIL" --domain "$APP_DOMAIN"
 
+bash "$SCRIPT_DIR/secure-tls-permissions.sh"
+
 echo "Certificate issued successfully; starting the HTTPS web service."
 docker compose -f "$COMPOSE_FILE" up -d web

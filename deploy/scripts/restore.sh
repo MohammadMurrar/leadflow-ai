@@ -33,7 +33,7 @@ if [[ "$confirmation" != "RESTORE $MYSQL_DATABASE" ]]; then
 fi
 
 echo "Creating a safety backup of the current state before restoration."
-"$SCRIPT_DIR/backup.sh"
+bash "$SCRIPT_DIR/backup.sh"
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/leadflow-restore.XXXXXX")"
 cleanup() { rm -rf -- "$work_dir"; }

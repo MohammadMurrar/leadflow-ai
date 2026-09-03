@@ -27,7 +27,7 @@
       "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/start",
+        "url": "=http://backend:8080/api/v1/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/start",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -107,7 +107,7 @@
       "waitBetweenTries": 1000,
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
       "parameters": {
-        "method": "POST", "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/success",
+        "method": "POST", "url": "=http://backend:8080/api/v1/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/success",
         "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ { score: $json.qualificationScore, priority: $json.priority, category: $json.category, summary: $json.aiSummary, recommendedReply: $json.recommendedReply, workflowExecutionId: $json.workflowExecutionId } }}",
         "options": {}
@@ -136,7 +136,7 @@
       "waitBetweenTries": 1000,
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
       "parameters": {
-        "method": "POST", "url": "={{ $env.LEADFLOW_API_BASE_URL }}/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/failure",
+        "method": "POST", "url": "=http://backend:8080/api/v1/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/failure",
         "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ { failureCode: $json.failureCode, message: $json.message, workflowExecutionId: $json.workflowExecutionId } }}",
         "options": {}
