@@ -3,10 +3,12 @@ package com.mohammadmurrar.leadflow.qualification;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 import java.time.Instant;
 import java.util.List;
 
 @Component
+@Profile("!provisioning")
 public class QualificationReliabilityScheduler {
     private final QualificationDispatchService dispatchService;
     private final QualificationAttemptRepository attemptRepository;

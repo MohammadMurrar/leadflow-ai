@@ -12,6 +12,7 @@ import com.mohammadmurrar.leadflow.service.ServiceOfferingService;
 import com.mohammadmurrar.leadflow.service.api.ServiceOptionResponse;
 import com.mohammadmurrar.leadflow.settings.WorkspaceSettingsService;
 import com.mohammadmurrar.leadflow.settings.api.WorkspaceSettingsResponse;
+import com.mohammadmurrar.leadflow.workspace.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,41 +47,61 @@ class PublicInquiryServiceTest {
     @Mock WorkspaceSettingsService workspaceSettingsService;
     @Mock ServiceOfferingService serviceOfferingService;
     @Mock LeadService leadService;
+    @Mock LegacyPublicWorkspaceResolver workspaceResolver;
+
+    private final Workspace workspace = Workspace.create(UUID.randomUUID(), "leadflow-ai",
+            "Legacy", WorkspaceStatus.ACTIVE);
 
     @Test
     void configurationMapsOnlyPublicWorkspaceAndActiveServiceFieldsWithBoundedDeterministicRead() {
         PublicInquiryService service = service();
-        when(workspaceSettingsService.findWorkspace()).thenReturn(new WorkspaceSettingsResponse(
+        when(workspaceResolver.resolve()).thenReturn(workspace);
+        when(workspaceSettingsService.findWorkspace(workspace)).thenReturn(new WorkspaceSettingsResponse(
                 7, "Northstar Services", "private@example.com", "Public workspace description",
+                "Northstar Public", "Build with confidence", "/assets/northstar.svg",
+                "Asia/Jerusalem", "ILS", "We respond within two hours.",
+                "https://example.com/privacy", "We use your details to respond.", "2026-08",
+                List.of("private-recipient@example.com"),
                 Instant.parse("2026-08-22T08:00:00Z")));
         List<ServiceOptionResponse> activeServices = List.of(
                 new ServiceOptionResponse(SERVICE_ID, "AI Automation"),
                 new ServiceOptionResponse(UUID.fromString("22222222-2222-2222-2222-222222222222"),
                         "Data Integration"));
-        when(serviceOfferingService.findActiveOptions(isNull(), any(Pageable.class)))
+        when(serviceOfferingService.findActiveOptions(org.mockito.ArgumentMatchers.same(workspace), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(activeServices));
 
         PublicInquiryConfigurationResponse result = service.configuration();
 
         assertThat(result.workspaceName()).isEqualTo("Northstar Services");
         assertThat(result.description()).isEqualTo("Public workspace description");
+        assertThat(result.publicBrandName()).isEqualTo("Northstar Public");
+        assertThat(result.publicTagline()).isEqualTo("Build with confidence");
+        assertThat(result.publicLogoPath()).isEqualTo("/assets/northstar.svg");
+        assertThat(result.currency()).isEqualTo("ILS");
+        assertThat(result.responseTimeText()).isEqualTo("We respond within two hours.");
+        assertThat(result.privacyPolicyUrl()).isEqualTo("https://example.com/privacy");
+        assertThat(result.privacyNoticeText()).isEqualTo("We use your details to respond.");
+        assertThat(result.privacyNoticeVersion()).isEqualTo("2026-08");
         assertThat(result.services()).containsExactly(
                 new PublicServiceResponse(SERVICE_ID, "AI Automation"),
                 new PublicServiceResponse(UUID.fromString("22222222-2222-2222-2222-222222222222"),
                         "Data Integration"));
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(serviceOfferingService).findActiveOptions(isNull(), pageable.capture());
+        verify(serviceOfferingService).findActiveOptions(org.mockito.ArgumentMatchers.same(workspace), isNull(), pageable.capture());
         assertThat(pageable.getValue().getPageNumber()).isZero();
         assertThat(pageable.getValue().getPageSize()).isEqualTo(200);
         assertThat(recordComponents(PublicInquiryConfigurationResponse.class))
-                .containsExactly("workspaceName", "description", "services");
+                .containsExactly("workspaceName", "description", "publicBrandName", "publicTagline",
+                        "publicLogoPath", "currency", "responseTimeText", "privacyPolicyUrl",
+                        "privacyNoticeText", "privacyNoticeVersion", "services");
         assertThat(recordComponents(PublicServiceResponse.class)).containsExactly("id", "name");
     }
 
     @Test
     void publicContractsContainNoPrivateWorkspaceServiceOrLeadFields() {
         assertThat(recordComponents(PublicInquiryConfigurationResponse.class))
-                .doesNotContain("contactEmail", "version", "updatedAt", "users", "automationSettings");
+                .doesNotContain("contactEmail", "notificationRecipients", "timeZone",
+                        "version", "updatedAt", "id", "users", "automationSettings");
         assertThat(recordComponents(PublicServiceResponse.class))
                 .doesNotContain("description", "active", "version", "createdAt", "updatedAt", "pricing");
         assertThat(recordComponents(PublicLeadRequest.class)).containsExactly(
@@ -89,6 +110,19 @@ class PublicInquiryServiceTest {
         assertThat(recordComponents(PublicLeadRequest.class)).doesNotContain(
                 "source", "requestedService", "status", "priority", "qualificationScore",
                 "category", "aiSummary", "recommendedReply", "leadId", "version", "workspaceId");
+    }
+
+    @Test
+    void configurationFallsBackToWorkspaceNameWhenPublicBrandNameIsAbsent() {
+        when(workspaceResolver.resolve()).thenReturn(workspace);
+        when(workspaceSettingsService.findWorkspace(workspace)).thenReturn(new WorkspaceSettingsResponse(
+                0, "Fallback Workspace", null, null, null, null, null, "UTC", "USD",
+                "We usually respond within one business day.", null, null, null, List.of(),
+                Instant.parse("2026-08-22T08:00:00Z")));
+        when(serviceOfferingService.findActiveOptions(org.mockito.ArgumentMatchers.same(workspace), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        assertThat(service().configuration().publicBrandName()).isEqualTo("Fallback Workspace");
     }
 
     @ParameterizedTest
@@ -101,7 +135,7 @@ class PublicInquiryServiceTest {
         PublicLeadSubmissionResponse response = service.submit(request);
 
         ArgumentCaptor<CreateLeadRequest> delegated = ArgumentCaptor.forClass(CreateLeadRequest.class);
-        verify(leadService).create(delegated.capture());
+        verify(leadService).createForWorkspace(org.mockito.ArgumentMatchers.same(workspace), delegated.capture());
         CreateLeadRequest value = delegated.getValue();
         assertThat(value.fullName()).isEqualTo(request.fullName());
         assertThat(value.email()).isEqualTo(request.email());
@@ -129,7 +163,7 @@ class PublicInquiryServiceTest {
         PublicInquiryService service = service();
         PublicLeadRequest genuine = request(null);
         PublicLeadSubmissionResponse created = service.submit(genuine);
-        when(leadService.create(any(CreateLeadRequest.class))).thenThrow(new DuplicateLeadException());
+        when(leadService.createForWorkspace(any(Workspace.class), any(CreateLeadRequest.class))).thenThrow(new DuplicateLeadException());
 
         PublicLeadSubmissionResponse duplicate = service.submit(genuine);
         PublicLeadSubmissionResponse honeypot = service.submit(request("filled"));
@@ -144,7 +178,7 @@ class PublicInquiryServiceTest {
     @Test
     void unrelatedConflictPropagates() {
         ConflictException conflict = new ConflictException("Selected service is inactive");
-        when(leadService.create(any(CreateLeadRequest.class))).thenThrow(conflict);
+        when(leadService.createForWorkspace(any(Workspace.class), any(CreateLeadRequest.class))).thenThrow(conflict);
 
         assertThatThrownBy(() -> service().submit(request(null))).isSameAs(conflict);
     }
@@ -152,13 +186,15 @@ class PublicInquiryServiceTest {
     @Test
     void unexpectedExceptionPropagates() {
         IllegalStateException failure = new IllegalStateException("Database unavailable");
-        when(leadService.create(any(CreateLeadRequest.class))).thenThrow(failure);
+        when(leadService.createForWorkspace(any(Workspace.class), any(CreateLeadRequest.class))).thenThrow(failure);
 
         assertThatThrownBy(() -> service().submit(request(null))).isSameAs(failure);
     }
 
     private PublicInquiryService service() {
-        return new PublicInquiryService(workspaceSettingsService, serviceOfferingService, leadService);
+        org.mockito.Mockito.lenient().when(workspaceResolver.resolve()).thenReturn(workspace);
+        return new PublicInquiryService(workspaceSettingsService, serviceOfferingService, leadService,
+                workspaceResolver);
     }
 
     private PublicLeadRequest request(String website) {

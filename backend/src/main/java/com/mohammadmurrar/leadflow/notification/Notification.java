@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @Entity
 @Table(name = "notifications", indexes = {
@@ -37,6 +38,10 @@ public class Notification {
     @JoinColumn(name = "lead_id")
     private Lead lead;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "workspace_id")
+    private Workspace workspace;
+
     private Instant readAt;
 
     @Column(nullable = false, updatable = false)
@@ -52,7 +57,8 @@ public class Notification {
         notification.severity = Objects.requireNonNull(severity, "Notification severity is required");
         notification.title = requireText(title, "Notification title", 160);
         notification.message = requireText(message, "Notification message", 500);
-        notification.lead = lead;
+        notification.lead = Objects.requireNonNull(lead, "Lead is required");
+        notification.workspace = Objects.requireNonNull(lead.getWorkspace(), "Workspace is required");
         return notification;
     }
 
@@ -88,7 +94,7 @@ public class Notification {
     public String getTitle() { return title; }
     public String getMessage() { return message; }
     public Lead getLead() { return lead; }
+    public Workspace getWorkspace() { return workspace; }
     public Instant getReadAt() { return readAt; }
     public Instant getCreatedAt() { return createdAt; }
 }
-

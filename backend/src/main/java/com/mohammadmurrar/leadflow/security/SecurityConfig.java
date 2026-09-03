@@ -125,9 +125,16 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         .requestMatchers("/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/password-reset/request",
+                                "/api/v1/auth/password-reset/confirm").permitAll()
                         .requestMatchers("/api/v1/automation/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public/inquiry-config").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/public/leads").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/public/workspaces/{workspaceSlug}/inquiry-config").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/public/workspaces/{workspaceSlug}/leads").permitAll()
                         .requestMatchers("/api/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .exceptionHandling(configuration -> configuration

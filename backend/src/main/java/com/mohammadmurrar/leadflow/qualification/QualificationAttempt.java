@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @Entity
 @Table(name = "qualification_attempts")
@@ -15,6 +16,9 @@ public class QualificationAttempt {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "lead_id", nullable = false)
     private Lead lead;
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "workspace_id")
+    private Workspace workspace;
     @Column(nullable = false) private int attemptNumber;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
     private QualificationAttemptStatus status;
@@ -39,6 +43,7 @@ public class QualificationAttempt {
         QualificationAttempt attempt = new QualificationAttempt();
         attempt.id = UUID.randomUUID();
         attempt.lead = lead;
+        attempt.workspace = Objects.requireNonNull(lead.getWorkspace(), "Workspace is required");
         attempt.attemptNumber = attemptNumber;
         attempt.status = QualificationAttemptStatus.PENDING;
         return attempt;
@@ -102,6 +107,7 @@ public class QualificationAttempt {
     public UUID getId() { return id; }
     public long getVersion() { return version; }
     public Lead getLead() { return lead; }
+    public Workspace getWorkspace() { return workspace; }
     public int getAttemptNumber() { return attemptNumber; }
     public QualificationAttemptStatus getStatus() { return status; }
     public QualificationFailureCode getFailureCode() { return failureCode; }

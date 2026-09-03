@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -27,20 +29,23 @@ import static org.mockito.Mockito.when;
 class AnalyticsServiceTest {
     private static final Instant START = Instant.parse("2026-07-14T00:00:00Z");
     private static final Instant END = Instant.parse("2026-08-13T00:00:00Z");
+    private static final UUID WORKSPACE_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
 
     @Mock LeadRepository repository;
     @Mock DashboardService dashboardService;
+    @Mock CurrentWorkspace currentWorkspace;
     AnalyticsService service;
 
     @BeforeEach
     void setUp() {
-        service = new AnalyticsService(repository, dashboardService);
+        when(currentWorkspace.requireActiveId()).thenReturn(WORKSPACE_ID);
+        service = new AnalyticsService(repository, dashboardService, currentWorkspace);
     }
 
     @Test
     void calculatesAllSectionsFromOneThirtyDayRange() {
         stubThirtyDayRange();
-        when(repository.countLeadsByStatus(START, END)).thenReturn(List.of(
+        when(repository.countLeadsByStatus(WORKSPACE_ID, START, END)).thenReturn(List.of(
                 status(LeadStatus.NEW, 1),
                 status(LeadStatus.QUALIFYING, 1),
                 status(LeadStatus.QUALIFIED, 2),
@@ -48,20 +53,23 @@ class AnalyticsServiceTest {
                 status(LeadStatus.WON, 1),
                 status(LeadStatus.LOST, 1),
                 status(LeadStatus.AUTOMATION_FAILED, 1)));
-        when(repository.sumEstimatedBudget(START, END)).thenReturn(new BigDecimal("12345.678"));
-        when(repository.averageQualificationScore(START, END)).thenReturn(82.25);
-        when(repository.countPerformanceByDay(org.mockito.ArgumentMatchers.eq(START),
+        when(repository.sumEstimatedBudget(WORKSPACE_ID, START, END)).thenReturn(new BigDecimal("12345.678"));
+        when(repository.averageQualificationScore(WORKSPACE_ID, START, END)).thenReturn(82.25);
+        when(repository.countPerformanceByDay(org.mockito.ArgumentMatchers.eq(WORKSPACE_ID),
+                org.mockito.ArgumentMatchers.eq(START),
                 org.mockito.ArgumentMatchers.eq(END), anySet())).thenReturn(List.of(
                 day(2026, 7, 14, 2, 1), day(2026, 8, 12, 1, 1)));
-        when(repository.countLeadsByPriority(START, END)).thenReturn(List.of(
+        when(repository.countLeadsByPriority(WORKSPACE_ID, START, END)).thenReturn(List.of(
                 priority(LeadPriority.HIGH, 2), priority(LeadPriority.MEDIUM, 1),
                 priority(LeadPriority.LOW, 1), priority(LeadPriority.UNASSESSED, 3),
                 priority(null, 1)));
         when(repository.countQualifiedLeadsByCategory(
-                org.mockito.ArgumentMatchers.eq(START), org.mockito.ArgumentMatchers.eq(END),
+                org.mockito.ArgumentMatchers.eq(WORKSPACE_ID), org.mockito.ArgumentMatchers.eq(START),
+                org.mockito.ArgumentMatchers.eq(END),
                 anySet())).thenReturn(List.of(category("Enterprise", 3), category("Unassigned", 2)));
         when(repository.findTopServicePerformance(
-                org.mockito.ArgumentMatchers.eq(START), org.mockito.ArgumentMatchers.eq(END),
+                org.mockito.ArgumentMatchers.eq(WORKSPACE_ID), org.mockito.ArgumentMatchers.eq(START),
+                org.mockito.ArgumentMatchers.eq(END),
                 anySet(), org.mockito.ArgumentMatchers.any(Pageable.class))).thenReturn(List.of(
                 service("AI Automation", 4, 3, "10000.00", 90.0),
                 service("Unspecified", 2, 1, null, null)));
@@ -93,7 +101,8 @@ class AnalyticsServiceTest {
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
         verify(repository).findTopServicePerformance(
-                org.mockito.ArgumentMatchers.eq(START), org.mockito.ArgumentMatchers.eq(END),
+                org.mockito.ArgumentMatchers.eq(WORKSPACE_ID), org.mockito.ArgumentMatchers.eq(START),
+                org.mockito.ArgumentMatchers.eq(END),
                 anySet(), pageable.capture());
         assertThat(pageable.getValue().getPageSize()).isEqualTo(10);
     }
@@ -101,7 +110,7 @@ class AnalyticsServiceTest {
     @Test
     void zeroDataReturnsSafeMetricsAndNoImpliedPerformanceSeries() {
         stubThirtyDayRange();
-        when(repository.countLeadsByStatus(START, END)).thenReturn(List.of());
+        when(repository.countLeadsByStatus(WORKSPACE_ID, START, END)).thenReturn(List.of());
 
         AnalyticsResponse result = service.getAnalytics("30");
 
@@ -125,12 +134,13 @@ class AnalyticsServiceTest {
         DashboardService.RangeContext range = new DashboardService.RangeContext(
                 "all", null, LocalDate.parse("2026-08-12"), null, END);
         when(dashboardService.resolveRange("all")).thenReturn(range);
-        when(repository.countLeadsByStatus(null, END))
+        when(repository.countLeadsByStatus(WORKSPACE_ID, null, END))
                 .thenReturn(List.of(status(LeadStatus.QUALIFIED, 2)));
-        when(repository.findEarliestCreatedAtBefore(END))
+        when(repository.findEarliestCreatedAtBefore(WORKSPACE_ID, END))
                 .thenReturn(Instant.parse("2024-01-15T10:00:00Z"));
         when(repository.countPerformanceByMonth(
-                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(END),
+                org.mockito.ArgumentMatchers.eq(WORKSPACE_ID), org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(END),
                 anySet())).thenReturn(List.of(
                 month(2024, 1, 1, 1), month(2026, 8, 1, 1)));
 
@@ -147,9 +157,9 @@ class AnalyticsServiceTest {
                 assertThat(point.totalLeads()).isZero();
             }
         });
-        verify(repository).sumEstimatedBudget(null, END);
-        verify(repository).averageQualificationScore(null, END);
-        verify(repository).countLeadsByPriority(null, END);
+        verify(repository).sumEstimatedBudget(WORKSPACE_ID, null, END);
+        verify(repository).averageQualificationScore(WORKSPACE_ID, null, END);
+        verify(repository).countLeadsByPriority(WORKSPACE_ID, null, END);
     }
 
     @Test
@@ -157,12 +167,13 @@ class AnalyticsServiceTest {
         DashboardService.RangeContext range = new DashboardService.RangeContext(
                 "all", null, LocalDate.parse("2026-08-12"), null, END);
         when(dashboardService.resolveRange("all")).thenReturn(range);
-        when(repository.countLeadsByStatus(null, END))
+        when(repository.countLeadsByStatus(WORKSPACE_ID, null, END))
                 .thenReturn(List.of(status(LeadStatus.CONTACTED, 1)));
-        when(repository.findEarliestCreatedAtBefore(END))
+        when(repository.findEarliestCreatedAtBefore(WORKSPACE_ID, END))
                 .thenReturn(Instant.parse("2026-08-10T23:00:00Z"));
         when(repository.countPerformanceByDay(
-                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(END),
+                org.mockito.ArgumentMatchers.eq(WORKSPACE_ID), org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(END),
                 anySet())).thenReturn(List.of(day(2026, 8, 10, 1, 1)));
 
         AnalyticsResponse result = service.getAnalytics("all");

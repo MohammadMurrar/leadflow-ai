@@ -20,6 +20,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @ExtendWith(MockitoExtension.class)
 class LeadLifecycleServiceTest {
@@ -28,6 +30,8 @@ class LeadLifecycleServiceTest {
     @Mock NotificationService notificationService;
     @Mock QualificationAttemptService qualificationAttemptService;
     @Mock ServiceOfferingService serviceOfferingService;
+    @Mock CurrentWorkspace currentWorkspace;
+    private final Workspace workspace = com.mohammadmurrar.leadflow.support.WorkspaceTestFixtures.activeWorkspaceA();
 
     @Test
     void allowsEveryDeclaredTransitionAndPreservesQualificationData() {
@@ -38,7 +42,8 @@ class LeadLifecycleServiceTest {
                 new Transition(LeadStatus.CONTACTED, LeadStatus.WON),
                 new Transition(LeadStatus.CONTACTED, LeadStatus.LOST)}) {
             Lead lead = leadAt(transition.from());
-            when(repository.findById(lead.getId())).thenReturn(Optional.of(lead));
+            when(currentWorkspace.requireActiveId()).thenReturn(workspace.getId());
+            when(repository.findByIdAndWorkspaceId(lead.getId(), workspace.getId())).thenReturn(Optional.of(lead));
             LeadResponse result = service().changeStatus(lead.getId(), transition.to(), lead.getVersion());
             assertThat(result.status()).isEqualTo(transition.to());
             assertQualificationIntegrity(result);
@@ -54,7 +59,8 @@ class LeadLifecycleServiceTest {
             for (LeadStatus to : LeadStatus.values()) {
                 if (from == to || allowed(from, to)) continue;
                 Lead lead = leadAt(from);
-                when(repository.findById(lead.getId())).thenReturn(Optional.of(lead));
+                when(currentWorkspace.requireActiveId()).thenReturn(workspace.getId());
+                when(repository.findByIdAndWorkspaceId(lead.getId(), workspace.getId())).thenReturn(Optional.of(lead));
                 assertThatThrownBy(() -> service().changeStatus(lead.getId(), to, lead.getVersion()))
                         .isInstanceOf(ConflictException.class)
                         .hasMessageContaining("cannot transition");
@@ -68,7 +74,8 @@ class LeadLifecycleServiceTest {
     @Test
     void currentStatusIsIdempotentWithoutFlushOrSideEffects() {
         Lead lead = leadAt(LeadStatus.CONTACTED);
-        when(repository.findById(lead.getId())).thenReturn(Optional.of(lead));
+        when(currentWorkspace.requireActiveId()).thenReturn(workspace.getId());
+        when(repository.findByIdAndWorkspaceId(lead.getId(), workspace.getId())).thenReturn(Optional.of(lead));
         LeadResponse first = service().changeStatus(lead.getId(), LeadStatus.CONTACTED, lead.getVersion());
         LeadResponse second = service().changeStatus(lead.getId(), LeadStatus.CONTACTED, lead.getVersion());
         assertThat(first).isEqualTo(second);
@@ -79,12 +86,13 @@ class LeadLifecycleServiceTest {
     @Test
     void rejectsStaleVersionAndUnknownLead() {
         Lead lead = leadAt(LeadStatus.QUALIFIED);
-        when(repository.findById(lead.getId())).thenReturn(Optional.of(lead));
+        when(currentWorkspace.requireActiveId()).thenReturn(workspace.getId());
+        when(repository.findByIdAndWorkspaceId(lead.getId(), workspace.getId())).thenReturn(Optional.of(lead));
         assertThatThrownBy(() -> service().changeStatus(lead.getId(), LeadStatus.CONTACTED,
                 lead.getVersion() + 1)).isInstanceOf(ConflictException.class)
                 .hasMessage("Lead changed elsewhere. Refresh and try again");
         UUID unknown = UUID.randomUUID();
-        when(repository.findById(unknown)).thenReturn(Optional.empty());
+        when(repository.findByIdAndWorkspaceId(unknown, workspace.getId())).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service().changeStatus(unknown, LeadStatus.CONTACTED, 0))
                 .isInstanceOf(NotFoundException.class);
         verify(repository, never()).flush();
@@ -93,7 +101,7 @@ class LeadLifecycleServiceTest {
     @Test
     void qualificationRetryDoesNotRegressAdvancedLifecycleStatus() {
         Lead lead = leadAt(LeadStatus.WON);
-        when(repository.findById(lead.getId())).thenReturn(Optional.of(lead));
+        when(repository.findActiveByIdForAutomation(lead.getId())).thenReturn(Optional.of(lead));
         LeadResponse result = service().qualify(lead.getId(), new com.mohammadmurrar.leadflow.lead.api.QualificationRequest(
                 10, LeadPriority.LOW, "Changed", "Changed summary", "Changed reply"));
         assertThat(result.status()).isEqualTo(LeadStatus.WON);
@@ -107,12 +115,14 @@ class LeadLifecycleServiceTest {
                         java.time.Duration.ofHours(1), 10, 3, java.time.Duration.ofSeconds(1),
                         java.time.Duration.ofSeconds(10), java.time.Duration.ofMinutes(1),
                         java.time.Duration.ofMinutes(30), java.time.Duration.ofMinutes(30), 20),
-                serviceOfferingService);
+                serviceOfferingService,
+                mock(com.mohammadmurrar.leadflow.email.EmailIntentService.class),
+                currentWorkspace);
     }
 
     private Lead leadAt(LeadStatus status) {
-        Lead lead = Lead.create("Lifecycle Lead", "lifecycle@example.com", "+1 555 0100",
-                "Lifecycle Co", "Sales workflow", new BigDecimal("5000.00"),
+        Lead lead = Lead.create(workspace, "Lifecycle Lead", "lifecycle@example.com", "+1 555 0100",
+                "Lifecycle Co", "Sales workflow", null, new BigDecimal("5000.00"),
                 LocalDate.parse("2026-09-01"), "A detailed lifecycle test request.", "test");
         if (status == LeadStatus.NEW) return lead;
         lead.startQualification();

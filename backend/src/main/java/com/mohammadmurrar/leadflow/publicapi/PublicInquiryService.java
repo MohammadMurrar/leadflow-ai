@@ -11,6 +11,7 @@ import com.mohammadmurrar.leadflow.service.ServiceOfferingService;
 import com.mohammadmurrar.leadflow.settings.WorkspaceSettingsService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @Service
 public class PublicInquiryService {
@@ -20,30 +21,46 @@ public class PublicInquiryService {
     private final WorkspaceSettingsService workspaceSettingsService;
     private final ServiceOfferingService serviceOfferingService;
     private final LeadService leadService;
+    private final LegacyPublicWorkspaceResolver workspaceResolver;
 
     public PublicInquiryService(WorkspaceSettingsService workspaceSettingsService,
-            ServiceOfferingService serviceOfferingService, LeadService leadService) {
+            ServiceOfferingService serviceOfferingService, LeadService leadService,
+            LegacyPublicWorkspaceResolver workspaceResolver) {
         this.workspaceSettingsService = workspaceSettingsService;
         this.serviceOfferingService = serviceOfferingService;
         this.leadService = leadService;
+        this.workspaceResolver = workspaceResolver;
     }
 
     public PublicInquiryConfigurationResponse configuration() {
-        var workspace = workspaceSettingsService.findWorkspace();
+        return configuration(workspaceResolver.resolve());
+    }
+
+    public PublicInquiryConfigurationResponse configuration(Workspace resolvedWorkspace) {
+        var workspace = workspaceSettingsService.findWorkspace(resolvedWorkspace);
         var services = serviceOfferingService
-                .findActiveOptions(null, PageRequest.of(0, MAXIMUM_PUBLIC_SERVICES))
+                .findActiveOptions(resolvedWorkspace, null, PageRequest.of(0, MAXIMUM_PUBLIC_SERVICES))
                 .map(service -> new PublicServiceResponse(service.id(), service.name()))
                 .getContent();
         return new PublicInquiryConfigurationResponse(
-                workspace.workspaceName(), workspace.description(), services);
+                workspace.workspaceName(), workspace.description(),
+                workspace.publicBrandName() == null ? workspace.workspaceName() : workspace.publicBrandName(),
+                workspace.publicTagline(), workspace.publicLogoPath(), workspace.currency(),
+                workspace.responseTimeText(),
+                workspace.privacyPolicyUrl(), workspace.privacyNoticeText(),
+                workspace.privacyNoticeVersion(), services);
     }
 
     public PublicLeadSubmissionResponse submit(PublicLeadRequest request) {
+        return submit(workspaceResolver.resolve(), request);
+    }
+
+    public PublicLeadSubmissionResponse submit(Workspace workspace, PublicLeadRequest request) {
         if (request.website() != null && !request.website().isBlank()) {
             return PublicLeadSubmissionResponse.received();
         }
         try {
-            leadService.create(new CreateLeadRequest(
+            leadService.createForWorkspace(workspace, new CreateLeadRequest(
                     request.fullName(), request.email(), request.phone(), request.company(),
                     request.serviceId(), null, request.estimatedBudget(), request.desiredStartDate(),
                     request.message(), PUBLIC_SOURCE));

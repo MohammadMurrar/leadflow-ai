@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @Entity
 @Table(name = "qualification_dispatch_outbox")
@@ -13,6 +14,9 @@ public class QualificationDispatchOutbox {
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "attempt_id", nullable = false, unique = true)
     private QualificationAttempt attempt;
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "workspace_id")
+    private Workspace workspace;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
     private QualificationDispatchStatus status;
     @Column(nullable = false) private int deliveryCount;
@@ -32,6 +36,7 @@ public class QualificationDispatchOutbox {
         QualificationDispatchOutbox outbox = new QualificationDispatchOutbox();
         outbox.id = UUID.randomUUID();
         outbox.attempt = Objects.requireNonNull(attempt);
+        outbox.workspace = Objects.requireNonNull(attempt.getWorkspace(), "Workspace is required");
         outbox.status = QualificationDispatchStatus.PENDING;
         outbox.availableAt = now;
         return outbox;
@@ -83,6 +88,7 @@ public class QualificationDispatchOutbox {
 
     public UUID getId() { return id; }
     public QualificationAttempt getAttempt() { return attempt; }
+    public Workspace getWorkspace() { return workspace; }
     public QualificationDispatchStatus getStatus() { return status; }
     public int getDeliveryCount() { return deliveryCount; }
     public Instant getAvailableAt() { return availableAt; }

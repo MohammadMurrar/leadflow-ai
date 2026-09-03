@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.sql.Timestamp;
 import java.time.Instant;
+import com.mohammadmurrar.leadflow.workspace.*;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -31,11 +32,14 @@ class LeadSearchApiTest {
     @Autowired LeadRepository repository;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired EntityManager entityManager;
+    @Autowired WorkspaceRepository workspaces;
+    private Workspace workspace;
     private int creationOrder;
 
     @BeforeEach
     void setUp() {
         creationOrder = 0;
+        workspace = workspaces.saveAndFlush(com.mohammadmurrar.leadflow.support.WorkspaceTestFixtures.activeWorkspaceA());
         save("Mohammad Murrar", "mohammad@example.com", "+972 50 123 4567",
                 "NovaBridge Consulting", "AI Lead Automation", LeadStatus.QUALIFIED);
         save("Alex Morgan", "alex@example.com", null,
@@ -143,7 +147,7 @@ class LeadSearchApiTest {
 
     private void save(String fullName, String email, String phone, String company,
                       String service, LeadStatus status) {
-        Lead lead = Lead.create(fullName, email, phone, company, service,
+        Lead lead = Lead.create(workspace, fullName, email, phone, company, service, null,
                 new BigDecimal("1000.00"), LocalDate.parse("2026-09-01"),
                 "A sufficiently detailed request for integration testing.", "test");
         moveToStatus(lead, status);

@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @Entity
 @Table(name = "services", uniqueConstraints =
-        @UniqueConstraint(name = "uk_services_normalized_name", columnNames = "normalized_name"))
+        @UniqueConstraint(name = "uk_services_workspace_normalized_name",
+                columnNames = {"workspace_id", "normalized_name"}))
 public class ServiceOffering {
     @Id
     private UUID id;
@@ -27,6 +29,10 @@ public class ServiceOffering {
     @Column(nullable = false)
     private boolean active;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "workspace_id", nullable = false)
+    private Workspace workspace;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -41,6 +47,12 @@ public class ServiceOffering {
         offering.rename(name);
         offering.description = normalizeDescription(description);
         offering.active = true;
+        return offering;
+    }
+
+    public static ServiceOffering create(Workspace workspace, String name, String description) {
+        ServiceOffering offering = create(name, description);
+        offering.workspace = java.util.Objects.requireNonNull(workspace, "Workspace is required");
         return offering;
     }
 
@@ -105,6 +117,7 @@ public class ServiceOffering {
     public String getName() { return name; }
     public String getDescription() { return description; }
     public boolean isActive() { return active; }
+    public Workspace getWorkspace() { return workspace; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 

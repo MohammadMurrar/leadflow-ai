@@ -9,27 +9,46 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @Transactional(readOnly = true)
 public class ServiceOfferingService {
     private static final Set<String> SORTS = Set.of("name:ASC", "name:DESC", "createdAt:ASC", "createdAt:DESC");
     private final ServiceOfferingRepository repository;
+    private final CurrentWorkspace currentWorkspace;
 
-    public ServiceOfferingService(ServiceOfferingRepository repository) {
+    @Autowired
+    public ServiceOfferingService(ServiceOfferingRepository repository, CurrentWorkspace currentWorkspace) {
         this.repository = repository;
+        this.currentWorkspace = currentWorkspace;
     }
 
     public Page<ServiceResponse> findAll(String search, Boolean active, Pageable pageable) {
         validatePageable(pageable, 100, true);
-        return repository.findManagement(normalizeSearch(search), active, pageable).map(ServiceResponse::from);
+        UUID workspaceId = currentWorkspace.requireActiveId();
+        return repository.findManagementByWorkspaceId(
+                workspaceId, normalizeSearch(search), active, pageable).map(ServiceResponse::from);
     }
 
     public Page<ServiceOptionResponse> findActiveOptions(String search, Pageable pageable) {
         validatePageable(pageable, 200, false);
+        UUID workspaceId = currentWorkspace.requireActiveId();
         Pageable ordered = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
                 Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-        return repository.findActiveOptions(normalizeSearch(search), ordered).map(ServiceOptionResponse::from);
+        return repository.findActiveOptionsByWorkspaceId(
+                workspaceId, normalizeSearch(search), ordered).map(ServiceOptionResponse::from);
+    }
+
+    public Page<ServiceOptionResponse> findActiveOptions(Workspace workspace, String search, Pageable pageable) {
+        Objects.requireNonNull(workspace, "Workspace is required");
+        validatePageable(pageable, 200, false);
+        Pageable ordered = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+        return repository.findActiveOptionsByWorkspaceId(workspace.getId(), normalizeSearch(search), ordered)
+                .map(ServiceOptionResponse::from);
     }
 
     public ServiceResponse findById(UUID id) {
@@ -38,10 +57,12 @@ public class ServiceOfferingService {
 
     @Transactional
     public ServiceResponse create(CreateServiceRequest request) {
+        Workspace workspace = currentWorkspace.requireActive();
         String key = normalizedKey(request.name());
-        if (repository.existsByNormalizedName(key)) duplicate();
+        if (repository.existsByWorkspaceIdAndNormalizedName(workspace.getId(), key)) duplicate();
         try {
-            return ServiceResponse.from(repository.saveAndFlush(ServiceOffering.create(request.name(), request.description())));
+            return ServiceResponse.from(repository.saveAndFlush(
+                    ServiceOffering.create(workspace, request.name(), request.description())));
         } catch (DataIntegrityViolationException ex) {
             throw new ConflictException("A service with this name already exists");
         }
@@ -49,10 +70,12 @@ public class ServiceOfferingService {
 
     @Transactional
     public ServiceResponse update(UUID id, UpdateServiceRequest request) {
-        ServiceOffering offering = get(id);
+        Workspace workspace = currentWorkspace.requireActive();
+        ServiceOffering offering = get(workspace.getId(), id);
         requireVersion(offering, request.version());
         String key = normalizedKey(request.name());
-        if (repository.existsByNormalizedNameAndIdNot(key, id)) duplicate();
+        if (repository.existsByWorkspaceIdAndNormalizedNameAndIdNot(
+                workspace.getId(), key, id)) duplicate();
         try {
             offering.update(request.name(), request.description());
             repository.flush();
@@ -75,13 +98,21 @@ public class ServiceOfferingService {
     }
 
     public ServiceOffering getActive(UUID id) {
-        ServiceOffering offering = get(id);
+        ServiceOffering offering = get(currentWorkspace.requireActiveId(), id);
+        if (!offering.isActive()) throw new ConflictException("The selected service is no longer active");
+        return offering;
+    }
+
+    public ServiceOffering getActive(Workspace workspace, UUID id) {
+        Objects.requireNonNull(workspace, "Workspace is required");
+        ServiceOffering offering = repository.findByIdAndWorkspaceId(id, workspace.getId())
+                .orElseThrow(() -> new NotFoundException("Service not found: " + id));
         if (!offering.isActive()) throw new ConflictException("The selected service is no longer active");
         return offering;
     }
 
     private ServiceResponse setActive(UUID id, long version, boolean active) {
-        ServiceOffering offering = get(id);
+        ServiceOffering offering = get(currentWorkspace.requireActiveId(), id);
         if (offering.isActive() == active) return ServiceResponse.from(offering);
         requireVersion(offering, version);
         try {
@@ -94,7 +125,12 @@ public class ServiceOfferingService {
     }
 
     private ServiceOffering get(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new NotFoundException("Service not found: " + id));
+        return get(currentWorkspace.requireActiveId(), id);
+    }
+
+    private ServiceOffering get(UUID workspaceId, UUID id) {
+        return repository.findByIdAndWorkspaceId(id, workspaceId)
+                .orElseThrow(() -> new NotFoundException("Service not found"));
     }
 
     private void requireVersion(ServiceOffering offering, long version) {

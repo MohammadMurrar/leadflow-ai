@@ -17,13 +17,26 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select lead from Lead lead where lead.id = :id")
     java.util.Optional<Lead> findByIdForUpdate(UUID id);
-    Page<Lead> findByStatus(LeadStatus status, Pageable pageable);
-    Page<Lead> findByStatusIn(Set<LeadStatus> statuses, Pageable pageable);
-    boolean existsByEmailAndCreatedAtAfter(String email, Instant cutoff);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select lead from Lead lead where lead.id = :id and lead.workspace.id = :workspaceId")
+    java.util.Optional<Lead> findByIdAndWorkspaceIdForUpdate(UUID id, UUID workspaceId);
+    java.util.Optional<Lead> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+    @Query("""
+            select lead from Lead lead join lead.workspace workspace
+            where lead.id = :id
+              and workspace.status = com.mohammadmurrar.leadflow.workspace.WorkspaceStatus.ACTIVE
+            """)
+    java.util.Optional<Lead> findActiveByIdForAutomation(UUID id);
+    boolean existsByIdAndWorkspaceId(UUID id, UUID workspaceId);
+    Page<Lead> findAllByWorkspaceId(UUID workspaceId, Pageable pageable);
+    Page<Lead> findByWorkspaceIdAndStatus(UUID workspaceId, LeadStatus status, Pageable pageable);
+    Page<Lead> findByWorkspaceIdAndStatusIn(UUID workspaceId, Set<LeadStatus> statuses, Pageable pageable);
+    boolean existsByWorkspaceIdAndEmailAndCreatedAtAfter(UUID workspaceId, String email, Instant cutoff);
 
     @Query("""
             select lead from Lead lead
-            where (:status is null or lead.status = :status)
+            where lead.workspace.id = :workspaceId
+              and (:status is null or lead.status = :status)
               and (
                 locate(:search, lower(lead.fullName)) > 0
                 or locate(:search, lower(lead.email)) > 0
@@ -32,11 +45,11 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
                 or locate(:search, lower(lead.requestedService)) > 0
               )
             """)
-    Page<Lead> search(String search, LeadStatus status, Pageable pageable);
+    Page<Lead> search(UUID workspaceId, String search, LeadStatus status, Pageable pageable);
 
     @Query("""
             select lead from Lead lead
-            where lead.status in :statuses
+            where lead.workspace.id = :workspaceId and lead.status in :statuses
               and (
                 locate(:search, lower(lead.fullName)) > 0
                 or locate(:search, lower(lead.email)) > 0
@@ -45,84 +58,92 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
                 or locate(:search, lower(lead.requestedService)) > 0
               )
             """)
-    Page<Lead> searchByStatuses(String search, Set<LeadStatus> statuses, Pageable pageable);
+    Page<Lead> searchByStatuses(UUID workspaceId, String search, Set<LeadStatus> statuses, Pageable pageable);
 
     @Query("""
             select lead.status as status, count(lead) as leadCount
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
             group by lead.status
             """)
-    List<StatusCountProjection> countLeadsByStatus(Instant start, Instant end);
+    List<StatusCountProjection> countLeadsByStatus(UUID workspaceId, Instant start, Instant end);
 
     @Query("""
             select sum(lead.estimatedBudget)
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
               and lead.estimatedBudget is not null
             """)
-    BigDecimal sumEstimatedBudget(Instant start, Instant end);
+    BigDecimal sumEstimatedBudget(UUID workspaceId, Instant start, Instant end);
 
     @Query("""
             select avg(lead.qualificationScore)
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
               and lead.qualificationScore is not null
             """)
-    Double averageQualificationScore(Instant start, Instant end);
+    Double averageQualificationScore(UUID workspaceId, Instant start, Instant end);
 
     @Query("""
             select lead.createdAt as createdAt, lead.status as status
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
             """)
-    List<PerformanceLeadProjection> findPerformanceLeads(Instant start, Instant end);
+    List<PerformanceLeadProjection> findPerformanceLeads(UUID workspaceId, Instant start, Instant end);
 
-    @Query("select min(lead.createdAt) from Lead lead where lead.createdAt < :end")
-    Instant findEarliestCreatedAtBefore(Instant end);
+    @Query("select min(lead.createdAt) from Lead lead where lead.workspace.id = :workspaceId and lead.createdAt < :end")
+    Instant findEarliestCreatedAtBefore(UUID workspaceId, Instant end);
 
     @Query("""
             select lead.priority as priority, count(lead) as leadCount
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
             group by lead.priority
             """)
-    List<PriorityCountProjection> countLeadsByPriority(Instant start, Instant end);
+    List<PriorityCountProjection> countLeadsByPriority(UUID workspaceId, Instant start, Instant end);
 
     @Query("""
             select coalesce(nullif(trim(lead.category), ''), 'Unassigned') as category,
                    count(lead) as leadCount
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
               and lead.status in :successfulStatuses
             group by coalesce(nullif(trim(lead.category), ''), 'Unassigned')
             """)
     List<CategoryCountProjection> countQualifiedLeadsByCategory(
-            Instant start, Instant end, Set<LeadStatus> successfulStatuses);
+            UUID workspaceId, Instant start, Instant end, Set<LeadStatus> successfulStatuses);
 
     @Query("""
             select year(lead.createdAt) as year, month(lead.createdAt) as month,
                    day(lead.createdAt) as day, count(lead) as leadCount,
                    sum(case when lead.status in :successfulStatuses then 1 else 0 end) as qualifiedCount
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
             group by year(lead.createdAt), month(lead.createdAt), day(lead.createdAt)
             order by year(lead.createdAt), month(lead.createdAt), day(lead.createdAt)
             """)
     List<DailyPerformanceProjection> countPerformanceByDay(
-            Instant start, Instant end, Set<LeadStatus> successfulStatuses);
+            UUID workspaceId, Instant start, Instant end, Set<LeadStatus> successfulStatuses);
 
     @Query("""
             select year(lead.createdAt) as year, month(lead.createdAt) as month,
                    count(lead) as leadCount,
                    sum(case when lead.status in :successfulStatuses then 1 else 0 end) as qualifiedCount
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
             group by year(lead.createdAt), month(lead.createdAt)
             order by year(lead.createdAt), month(lead.createdAt)
             """)
     List<MonthlyPerformanceProjection> countPerformanceByMonth(
-            Instant start, Instant end, Set<LeadStatus> successfulStatuses);
+            UUID workspaceId, Instant start, Instant end, Set<LeadStatus> successfulStatuses);
 
     @Query("""
             select coalesce(nullif(trim(lead.requestedService), ''), 'Unspecified') as service,
@@ -131,13 +152,14 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
                    sum(lead.estimatedBudget) as pipelineValue,
                    avg(lead.qualificationScore) as averageAiScore
             from Lead lead
-            where (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
+            where lead.workspace.id = :workspaceId
+              and (:start is null or lead.createdAt >= :start) and lead.createdAt < :end
             group by coalesce(nullif(trim(lead.requestedService), ''), 'Unspecified')
             order by count(lead) desc,
                      coalesce(nullif(trim(lead.requestedService), ''), 'Unspecified') asc
             """)
     List<ServicePerformanceProjection> findTopServicePerformance(
-            Instant start, Instant end, Set<LeadStatus> successfulStatuses, Pageable pageable);
+            UUID workspaceId, Instant start, Instant end, Set<LeadStatus> successfulStatuses, Pageable pageable);
 
     interface StatusCountProjection {
         LeadStatus getStatus();

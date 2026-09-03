@@ -24,7 +24,10 @@ public class DatabaseUserDetailsService implements UserDetailsService {
         } catch (IllegalArgumentException exception) {
             throw new UsernameNotFoundException("Invalid credentials");
         }
+        if (user.getWorkspace() == null || !user.getWorkspace().isActive()) {
+            throw new UsernameNotFoundException("Invalid credentials");
+        }
         return new AuthenticatedPrincipal(user.getId(), user.getEmail(), user.getDisplayName(),
-                user.getRole(), user.getPasswordHash(), user.isEnabled());
+                user.getRole(), user.getWorkspace().getId(), user.getPasswordHash(), user.isEnabled());
     }
 }

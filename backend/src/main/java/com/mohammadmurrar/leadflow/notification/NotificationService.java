@@ -10,20 +10,26 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Objects;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
 
 @Service
 @Transactional(readOnly = true)
 public class NotificationService {
     private final NotificationRepository repository;
+    private final CurrentWorkspace currentWorkspace;
 
-    public NotificationService(NotificationRepository repository) { this.repository = repository; }
+    public NotificationService(NotificationRepository repository, CurrentWorkspace currentWorkspace) {
+        this.repository = repository;
+        this.currentWorkspace = currentWorkspace;
+    }
 
     public Page<NotificationResponse> findAll(Pageable pageable) {
-        return repository.findAll(pageable).map(NotificationResponse::from);
+        return repository.findAllByWorkspaceId(currentWorkspace.requireActiveId(), pageable)
+                .map(NotificationResponse::from);
     }
 
     public long getUnreadCount() {
-        return repository.countByReadAtIsNull();
+        return repository.countUnreadByWorkspaceId(currentWorkspace.requireActiveId());
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -63,13 +69,14 @@ public class NotificationService {
 
     @Transactional
     public void markAsRead(UUID id) {
-        Notification notification = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Notification not found: " + id));
+        Notification notification = repository.findByIdAndWorkspaceId(id, currentWorkspace.requireActiveId())
+                .orElseThrow(() -> new NotFoundException("Notification not found"));
         notification.markAsRead();
     }
 
     @Transactional
     public void markAllAsRead() {
-        repository.findAllByReadAtIsNull().forEach(Notification::markAsRead);
+        repository.findUnreadByWorkspaceId(currentWorkspace.requireActiveId())
+                .forEach(Notification::markAsRead);
     }
 }

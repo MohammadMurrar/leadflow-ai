@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
 
 @Service
 @Transactional(readOnly = true)
@@ -36,17 +38,21 @@ public class AnalyticsService {
 
     private final LeadRepository repository;
     private final DashboardService dashboardService;
+    private final CurrentWorkspace currentWorkspace;
 
-    public AnalyticsService(LeadRepository repository, DashboardService dashboardService) {
+    public AnalyticsService(LeadRepository repository, DashboardService dashboardService,
+                            CurrentWorkspace currentWorkspace) {
         this.repository = repository;
         this.dashboardService = dashboardService;
+        this.currentWorkspace = currentWorkspace;
     }
 
     public AnalyticsResponse getAnalytics(String rangeValue) {
         DashboardService.RangeContext range = dashboardService.resolveRange(rangeValue);
+        UUID workspaceId = currentWorkspace.requireActiveId();
 
         Map<LeadStatus, Long> statusCounts = emptyStatusCounts();
-        repository.countLeadsByStatus(range.start(), range.end()).forEach(result -> {
+        repository.countLeadsByStatus(workspaceId, range.start(), range.end()).forEach(result -> {
             if (result.getStatus() != null) {
                 statusCounts.put(result.getStatus(), result.getLeadCount());
             }
@@ -57,31 +63,31 @@ public class AnalyticsService {
                 .mapToLong(status -> statusCounts.getOrDefault(status, 0L))
                 .sum();
 
-        PerformanceResult performance = performance(range, totalLeads);
+        PerformanceResult performance = performance(workspaceId, range, totalLeads);
 
         return new AnalyticsResponse(
                 range.value(),
                 totalLeads,
                 qualifiedLeads,
                 percentage(qualifiedLeads, totalLeads),
-                money(repository.sumEstimatedBudget(range.start(), range.end())),
-                score(repository.averageQualificationScore(range.start(), range.end())),
+                money(repository.sumEstimatedBudget(workspaceId, range.start(), range.end())),
+                score(repository.averageQualificationScore(workspaceId, range.start(), range.end())),
                 performance.granularity(),
                 performance.points(),
                 statusCounts,
-                priorityBreakdown(range, totalLeads),
-                categoryBreakdown(range, qualifiedLeads),
-                topServices(range));
+                priorityBreakdown(workspaceId, range, totalLeads),
+                categoryBreakdown(workspaceId, range, qualifiedLeads),
+                topServices(workspaceId, range));
     }
 
-    private PerformanceResult performance(DashboardService.RangeContext range, long totalLeads) {
+    private PerformanceResult performance(UUID workspaceId, DashboardService.RangeContext range, long totalLeads) {
         if (totalLeads == 0) {
             return new PerformanceResult(
                     AnalyticsResponse.PerformanceGranularity.DAILY, List.of());
         }
 
         LocalDate firstDate = range.days() == null
-                ? repository.findEarliestCreatedAtBefore(range.end()).atZone(ZoneOffset.UTC).toLocalDate()
+                ? repository.findEarliestCreatedAtBefore(workspaceId, range.end()).atZone(ZoneOffset.UTC).toLocalDate()
                 : range.today().minusDays(range.days() - 1L);
         boolean monthly = range.days() == null
                 && ChronoUnit.DAYS.between(firstDate, range.today()) + 1 > MAX_ALL_TIME_DAILY_DAYS;
@@ -92,7 +98,7 @@ public class AnalyticsService {
                  !month.isAfter(range.today().withDayOfMonth(1)); month = month.plusMonths(1)) {
                 counts.put(month, new Counts());
             }
-            repository.countPerformanceByMonth(range.start(), range.end(), SUCCESSFUL_STATUSES)
+            repository.countPerformanceByMonth(workspaceId, range.start(), range.end(), SUCCESSFUL_STATUSES)
                     .forEach(result -> counts.put(
                             LocalDate.of(result.getYear(), result.getMonth(), 1),
                             new Counts(result.getLeadCount(), result.getQualifiedCount())));
@@ -104,7 +110,7 @@ public class AnalyticsService {
         for (LocalDate date = firstDate; !date.isAfter(range.today()); date = date.plusDays(1)) {
             counts.put(date, new Counts());
         }
-        repository.countPerformanceByDay(range.start(), range.end(), SUCCESSFUL_STATUSES)
+        repository.countPerformanceByDay(workspaceId, range.start(), range.end(), SUCCESSFUL_STATUSES)
                 .forEach(result -> counts.put(
                         LocalDate.of(result.getYear(), result.getMonth(), result.getDay()),
                         new Counts(result.getLeadCount(), result.getQualifiedCount())));
@@ -120,13 +126,13 @@ public class AnalyticsService {
     }
 
     private List<AnalyticsResponse.BreakdownItem> priorityBreakdown(
-            DashboardService.RangeContext range, long totalLeads) {
+            UUID workspaceId, DashboardService.RangeContext range, long totalLeads) {
         Map<String, Long> counts = new LinkedHashMap<>();
         counts.put("HIGH", 0L);
         counts.put("MEDIUM", 0L);
         counts.put("LOW", 0L);
         counts.put("Unassigned", 0L);
-        repository.countLeadsByPriority(range.start(), range.end()).forEach(result -> {
+        repository.countLeadsByPriority(workspaceId, range.start(), range.end()).forEach(result -> {
             LeadPriority priority = result.getPriority();
             String name = priority == null || priority == LeadPriority.UNASSESSED
                     ? "Unassigned" : priority.name();
@@ -139,10 +145,10 @@ public class AnalyticsService {
     }
 
     private List<AnalyticsResponse.BreakdownItem> categoryBreakdown(
-            DashboardService.RangeContext range, long qualifiedLeads) {
+            UUID workspaceId, DashboardService.RangeContext range, long qualifiedLeads) {
         List<AnalyticsResponse.BreakdownItem> breakdown = new ArrayList<>();
         repository.countQualifiedLeadsByCategory(
-                        range.start(), range.end(), SUCCESSFUL_STATUSES).stream()
+                        workspaceId, range.start(), range.end(), SUCCESSFUL_STATUSES).stream()
                 .sorted((left, right) -> {
                     int byCount = Long.compare(right.getLeadCount(), left.getLeadCount());
                     return byCount != 0 ? byCount
@@ -155,9 +161,9 @@ public class AnalyticsService {
     }
 
     private List<AnalyticsResponse.ServicePerformance> topServices(
-            DashboardService.RangeContext range) {
+            UUID workspaceId, DashboardService.RangeContext range) {
         return repository.findTopServicePerformance(
-                        range.start(), range.end(), SUCCESSFUL_STATUSES,
+                        workspaceId, range.start(), range.end(), SUCCESSFUL_STATUSES,
                         PageRequest.of(0, TOP_SERVICES_LIMIT)).stream()
                 .map(result -> new AnalyticsResponse.ServicePerformance(
                         result.getService(),

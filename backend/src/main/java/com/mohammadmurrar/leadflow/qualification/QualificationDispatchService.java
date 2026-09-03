@@ -45,7 +45,8 @@ public class QualificationDispatchService {
         return repository.findClaimableForUpdate(now, properties.batchSize()).stream().map(outbox -> {
             outbox.claim(workerId, now, now.plus(properties.leaseDuration()));
             QualificationAttempt attempt = outbox.getAttempt();
-            return new ClaimedDispatch(outbox.getId(), attempt.getId(), outbox.getDeliveryCount(),
+            return new ClaimedDispatch(outbox.getId(), outbox.getWorkspace().getId(),
+                    attempt.getId(), outbox.getDeliveryCount(),
                     new QualificationDispatchRequest(attempt.getLead().getId(), attempt.getId(),
                             attempt.getAttemptNumber(), LeadResponse.from(attempt.getLead())));
         }).toList();
@@ -53,8 +54,12 @@ public class QualificationDispatchService {
 
     private void deliver(ClaimedDispatch claimed) {
         try {
+            Boolean eligible = transactions.execute(status -> repository
+                    .findEligibleByIdAndWorkspaceId(claimed.outboxId(), claimed.workspaceId()).isPresent());
+            if (!Boolean.TRUE.equals(eligible)) return;
             if (webhookClient.send(claimed.request())) {
-                transactions.executeWithoutResult(status -> repository.findById(claimed.outboxId())
+                transactions.executeWithoutResult(status -> repository
+                        .findEligibleByIdAndWorkspaceId(claimed.outboxId(), claimed.workspaceId())
                         .ifPresent(outbox -> outbox.delivered(workerId, Instant.now())));
                 return;
             }
@@ -62,7 +67,8 @@ public class QualificationDispatchService {
             // The classified persistent outcome below intentionally omits raw transport details.
         }
         boolean exhausted = claimed.deliveryCount() >= properties.maximumDeliveryAttempts();
-        transactions.executeWithoutResult(status -> repository.findById(claimed.outboxId()).ifPresent(outbox -> {
+        transactions.executeWithoutResult(status -> repository
+                .findEligibleByIdAndWorkspaceId(claimed.outboxId(), claimed.workspaceId()).ifPresent(outbox -> {
             if (exhausted) {
                 outbox.exhaust(workerId, QualificationFailureCode.WEBHOOK_DELIVERY_FAILED);
             } else {
@@ -70,7 +76,7 @@ public class QualificationDispatchService {
                         Instant.now().plus(backoff(claimed.deliveryCount())));
             }
         }));
-        if (exhausted) attemptService.failKnownDelivery(claimed.attemptId());
+        if (exhausted) attemptService.failKnownDelivery(claimed.attemptId(), claimed.workspaceId());
     }
 
     private Duration backoff(int deliveryCount) {
@@ -84,6 +90,6 @@ public class QualificationDispatchService {
         return candidate.compareTo(properties.maximumBackoff()) > 0 ? properties.maximumBackoff() : candidate;
     }
 
-    private record ClaimedDispatch(UUID outboxId, UUID attemptId, int deliveryCount,
+    private record ClaimedDispatch(UUID outboxId, UUID workspaceId, UUID attemptId, int deliveryCount,
                                    QualificationDispatchRequest request) {}
 }

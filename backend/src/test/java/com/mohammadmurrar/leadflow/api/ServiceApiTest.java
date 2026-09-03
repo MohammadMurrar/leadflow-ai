@@ -5,6 +5,8 @@ import com.mohammadmurrar.leadflow.service.ServiceOffering;
 import com.mohammadmurrar.leadflow.service.ServiceOfferingRepository;
 import com.mohammadmurrar.leadflow.service.ServiceOfferingService;
 import com.mohammadmurrar.leadflow.lead.LeadRepository;
+import com.mohammadmurrar.leadflow.workspace.WorkspaceRepository;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,6 +28,15 @@ class ServiceApiTest {
     @Autowired ServiceOfferingRepository repository;
     @Autowired ServiceOfferingService offeringService;
     @Autowired LeadRepository leads;
+    @Autowired WorkspaceRepository workspaces;
+    private Workspace workspace;
+
+    @BeforeEach
+    void workspace() {
+        workspace = com.mohammadmurrar.leadflow.support.WorkspaceTestFixtures.activeWorkspaceA();
+        if (!workspaces.existsById(workspace.getId())) workspace = workspaces.saveAndFlush(workspace);
+        else workspace = workspaces.findById(workspace.getId()).orElseThrow();
+    }
 
     @Test
     void managesLifecycleWithSearchFilteringSortingPaginationAndActiveOptions() throws Exception {
@@ -41,7 +52,8 @@ class ServiceApiTest {
                         .content(json(Map.of("name", "ai automation"))))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.status").value(409));
 
-        repository.saveAndFlush(ServiceOffering.create("Data Integration", "Connect systems"));
+        repository.saveAndFlush(ServiceOffering.create(
+                workspace, "Data Integration", "Connect systems"));
         mockMvc.perform(get("/api/v1/services").param("search", "AUTOMATION")
                         .param("active", "true").param("page", "0").param("size", "1")
                         .param("sort", "name,desc"))
@@ -88,7 +100,8 @@ class ServiceApiTest {
 
     @Test
     void leadCreationSupportsCatalogAndLegacyContractsAndRejectsInvalidSelections() throws Exception {
-        ServiceOffering offering = repository.saveAndFlush(ServiceOffering.create("Authoritative Service", null));
+        ServiceOffering offering = repository.saveAndFlush(ServiceOffering.create(
+                workspace, "Authoritative Service", null));
         mockMvc.perform(post("/api/v1/leads").contentType("application/json")
                         .content(leadJson("catalog-contract@example.com", offering.getId(), null)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.requestedService").value("Authoritative Service"));
@@ -114,7 +127,8 @@ class ServiceApiTest {
                         .content(leadJson("unknown-contract@example.com", UUID.randomUUID(), null)))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.status").value(404));
 
-        offeringService.deactivate(offering.getId(), offering.getVersion());
+        offering.deactivate();
+        repository.flush();
         mockMvc.perform(post("/api/v1/leads").contentType("application/json")
                         .content(leadJson("inactive-contract@example.com", offering.getId(), null)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.status").value(409));

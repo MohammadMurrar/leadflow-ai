@@ -19,6 +19,10 @@ spring:
     timeout: 30m
     jdbc:
       initialize-schema: never
+  data:
+    web:
+      pageable:
+        max-page-size: 200
 server:
   servlet:
     session:
@@ -37,8 +41,17 @@ leadflow:
     email: ${ADMIN_BOOTSTRAP_EMAIL:}
     display-name: ${ADMIN_BOOTSTRAP_DISPLAY_NAME:}
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+  provisioning:
+    enabled: ${LEADFLOW_PROVISIONING_ENABLED:false}
   automation:
     api-key: ${AUTOMATION_API_KEY:local-change-me}
+  password-reset:
+    enabled: ${PASSWORD_RESET_ENABLED:false}
+    active-key-version: ${PASSWORD_RESET_ACTIVE_KEY_VERSION:}
+    hmac-keys: ${PASSWORD_RESET_HMAC_KEYS:}
+    token-lifetime: ${PASSWORD_RESET_TOKEN_LIFETIME:PT30M}
+    request-cooldown: ${PASSWORD_RESET_REQUEST_COOLDOWN:PT5M}
+    retention: ${PASSWORD_RESET_RETENTION:PT720H}
   qualification-reliability:
     dispatcher-enabled: ${QUALIFICATION_DISPATCHER_ENABLED:false}
     legacy-callback-enabled: ${QUALIFICATION_LEGACY_CALLBACK_ENABLED:true}
@@ -53,5 +66,27 @@ leadflow:
     dispatch-timeout: ${QUALIFICATION_DISPATCH_TIMEOUT:PT30M}
     processing-timeout: ${QUALIFICATION_PROCESSING_TIMEOUT:PT30M}
     timeout-batch-size: ${QUALIFICATION_TIMEOUT_BATCH_SIZE:50}
+  email-delivery:
+    enabled: ${EMAIL_DELIVERY_ENABLED:false}
+    smtp-host: ${EMAIL_SMTP_HOST:}
+    smtp-port: ${EMAIL_SMTP_PORT:587}
+    smtp-username: ${EMAIL_SMTP_USERNAME:}
+    smtp-password: ${EMAIL_SMTP_PASSWORD:}
+    smtp-auth: ${EMAIL_SMTP_AUTH:true}
+    smtp-start-tls: ${EMAIL_SMTP_START_TLS:true}
+    sender-address: ${EMAIL_SENDER_ADDRESS:}
+    sender-display-name: ${EMAIL_SENDER_DISPLAY_NAME:LeadFlow}
+    reply-to: ${EMAIL_REPLY_TO:}
+    public-base-url: ${LEADFLOW_PUBLIC_FRONTEND_URL:}
+    allow-http-loopback: ${LEADFLOW_PUBLIC_FRONTEND_ALLOW_HTTP_LOOPBACK:false}
+    batch-size: ${EMAIL_DELIVERY_BATCH_SIZE:10}
+    scheduler-interval: ${EMAIL_DELIVERY_INTERVAL:PT30S}
+    lease-duration: ${EMAIL_DELIVERY_LEASE_DURATION:PT2M}
+    maximum-delivery-attempts: ${EMAIL_MAX_DELIVERY_ATTEMPTS:5}
+    initial-backoff: ${EMAIL_INITIAL_BACKOFF:PT30S}
+    maximum-backoff: ${EMAIL_MAX_BACKOFF:PT30M}
+    connection-timeout: ${EMAIL_CONNECTION_TIMEOUT:PT10S}
+    read-timeout: ${EMAIL_READ_TIMEOUT:PT10S}
+    write-timeout: ${EMAIL_WRITE_TIMEOUT:PT10S}
 n8n:
   lead-qualification-webhook-url: http://127.0.0.1:5678/webhook/lead-qualification

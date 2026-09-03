@@ -27,13 +27,16 @@ class QualificationDispatchServiceTest {
         TransactionStatus transactionStatus = mock(TransactionStatus.class);
         when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
 
-        Lead lead = Lead.create("Test Lead", "test@example.com", null, null,
-                "Consulting", null, null, "A sufficiently detailed test message", "test");
+        Lead lead = Lead.create(
+                com.mohammadmurrar.leadflow.support.WorkspaceTestFixtures.activeWorkspaceA(),
+                "Test Lead", "test@example.com", null, null, "Consulting", null,
+                null, null, "A sufficiently detailed test message", "test");
         lead.startQualification();
         QualificationAttempt attempt = QualificationAttempt.create(lead, 1);
         QualificationDispatchOutbox outbox = QualificationDispatchOutbox.create(attempt, Instant.now());
         when(repository.findClaimableForUpdate(any(), eq(1))).thenReturn(List.of(outbox));
-        when(repository.findById(outbox.getId())).thenReturn(Optional.of(outbox));
+        when(repository.findEligibleByIdAndWorkspaceId(
+                outbox.getId(), lead.getWorkspace().getId())).thenReturn(Optional.of(outbox));
         when(webhookClient.send(any()))
                 .thenThrow(new IllegalStateException("Unexpected webhook acknowledgement status: 200"));
 
@@ -46,7 +49,8 @@ class QualificationDispatchServiceTest {
         assertThat(attempt.getAttemptNumber()).isEqualTo(1);
         assertThat(attempt.getStatus()).isEqualTo(QualificationAttemptStatus.PENDING);
         verify(repository).findClaimableForUpdate(any(), eq(1));
-        verify(repository).findById(outbox.getId());
+        verify(repository, atLeastOnce()).findEligibleByIdAndWorkspaceId(
+                outbox.getId(), lead.getWorkspace().getId());
         verify(repository, never()).save(any());
         verifyNoInteractions(attemptService);
     }

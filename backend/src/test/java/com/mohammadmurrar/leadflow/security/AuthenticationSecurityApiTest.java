@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
+import com.mohammadmurrar.leadflow.workspace.WorkspaceRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
@@ -38,11 +39,14 @@ class AuthenticationSecurityApiTest {
     @Autowired UserRepository users;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired FindByIndexNameSessionRepository<? extends Session> sessions;
+    @Autowired WorkspaceRepository workspaces;
 
     @BeforeEach
     void createAdministrator() {
+        var workspace = com.mohammadmurrar.leadflow.support.WorkspaceTestFixtures.activeWorkspaceA();
+        if (!workspaces.existsById(workspace.getId())) workspace = workspaces.saveAndFlush(workspace);
         if (users.findByNormalizedEmail(User.normalizeEmail(EMAIL)).isEmpty()) {
-            users.save(User.createAdministrator(EMAIL, "Step 20 Administrator",
+            users.save(User.createAdministrator(workspace, EMAIL, "Step 20 Administrator",
                     passwordEncoder.encode(PASSWORD)));
         }
     }

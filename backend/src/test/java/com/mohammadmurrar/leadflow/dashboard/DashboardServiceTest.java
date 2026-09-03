@@ -14,6 +14,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,13 +26,16 @@ import static org.mockito.Mockito.when;
 class DashboardServiceTest {
     private static final Instant NOW = Instant.parse("2026-08-12T10:15:30Z");
     private static final Instant END = Instant.parse("2026-08-13T00:00:00Z");
+    private static final UUID WORKSPACE_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
 
     @Mock LeadRepository repository;
+    @Mock CurrentWorkspace currentWorkspace;
     DashboardService service;
 
     @BeforeEach
     void setUp() {
-        service = new DashboardService(repository, Clock.fixed(NOW, ZoneOffset.UTC));
+        org.mockito.Mockito.lenient().when(currentWorkspace.requireActiveId()).thenReturn(WORKSPACE_ID);
+        service = new DashboardService(repository, currentWorkspace, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -61,24 +66,24 @@ class DashboardServiceTest {
         assertThat(result.performance().get(0).qualifiedLeads()).isEqualTo(1);
         assertThat(result.performance().get(1).totalLeads()).isZero();
         assertThat(result.performance().get(6).totalLeads()).isEqualTo(1);
-        verify(repository).findPerformanceLeads(start, END);
-        verify(repository).countLeadsByStatus(start, END);
-        verify(repository).sumEstimatedBudget(start, END);
-        verify(repository).averageQualificationScore(start, END);
+        verify(repository).findPerformanceLeads(WORKSPACE_ID, start, END);
+        verify(repository).countLeadsByStatus(WORKSPACE_ID, start, END);
+        verify(repository).sumEstimatedBudget(WORKSPACE_ID, start, END);
+        verify(repository).averageQualificationScore(WORKSPACE_ID, start, END);
     }
 
     @Test
     void thirtyDaysUsesOneRangeForCardsStatusesAndChartAndRoundsMetrics() {
         Instant start = Instant.parse("2026-07-14T00:00:00Z");
-        when(repository.countLeadsByStatus(start, END)).thenReturn(List.of(
+        when(repository.countLeadsByStatus(WORKSPACE_ID, start, END)).thenReturn(List.of(
                 statusCount(LeadStatus.NEW, 1),
                 statusCount(LeadStatus.QUALIFIED, 2),
                 statusCount(LeadStatus.CONTACTED, 1),
                 statusCount(LeadStatus.WON, 1),
                 statusCount(LeadStatus.LOST, 1)));
-        when(repository.sumEstimatedBudget(start, END)).thenReturn(new BigDecimal("123.456"));
-        when(repository.averageQualificationScore(start, END)).thenReturn(82.25);
-        when(repository.findPerformanceLeads(start, END)).thenReturn(List.of(
+        when(repository.sumEstimatedBudget(WORKSPACE_ID, start, END)).thenReturn(new BigDecimal("123.456"));
+        when(repository.averageQualificationScore(WORKSPACE_ID, start, END)).thenReturn(82.25);
+        when(repository.findPerformanceLeads(WORKSPACE_ID, start, END)).thenReturn(List.of(
                 performanceLead("2026-07-14T00:00:00Z", LeadStatus.QUALIFIED),
                 performanceLead("2026-07-15T00:00:00Z", LeadStatus.CONTACTED),
                 performanceLead("2026-07-16T00:00:00Z", LeadStatus.WON),
@@ -116,14 +121,14 @@ class DashboardServiceTest {
 
     @Test
     void allTimeStartsAtEarliestLeadAndIncludesOldAndRecentMetrics() {
-        when(repository.findEarliestCreatedAtBefore(END))
+        when(repository.findEarliestCreatedAtBefore(WORKSPACE_ID, END))
                 .thenReturn(Instant.parse("2025-12-30T22:00:00Z"));
-        when(repository.countLeadsByStatus(null, END)).thenReturn(List.of(
+        when(repository.countLeadsByStatus(WORKSPACE_ID, null, END)).thenReturn(List.of(
                 statusCount(LeadStatus.QUALIFIED, 1),
                 statusCount(LeadStatus.LOST, 1)));
-        when(repository.sumEstimatedBudget(null, END)).thenReturn(new BigDecimal("5000.00"));
-        when(repository.averageQualificationScore(null, END)).thenReturn(90.0);
-        when(repository.findPerformanceLeads(null, END)).thenReturn(List.of(
+        when(repository.sumEstimatedBudget(WORKSPACE_ID, null, END)).thenReturn(new BigDecimal("5000.00"));
+        when(repository.averageQualificationScore(WORKSPACE_ID, null, END)).thenReturn(90.0);
+        when(repository.findPerformanceLeads(WORKSPACE_ID, null, END)).thenReturn(List.of(
                 performanceLead("2025-12-30T22:00:00Z", LeadStatus.QUALIFIED),
                 performanceLead("2026-08-12T12:00:00Z", LeadStatus.LOST)));
 
@@ -146,7 +151,7 @@ class DashboardServiceTest {
     @Test
     void emptyAllTimeReturnsSafeZerosAndTodayOnly() {
         stubRange(null, END, List.of());
-        when(repository.findEarliestCreatedAtBefore(END)).thenReturn(null);
+        when(repository.findEarliestCreatedAtBefore(WORKSPACE_ID, END)).thenReturn(null);
 
         DashboardStatsResponse result = service.getStats("all");
 
@@ -172,8 +177,8 @@ class DashboardServiceTest {
 
     private void stubRange(Instant start, Instant end,
                            List<LeadRepository.PerformanceLeadProjection> performance) {
-        when(repository.countLeadsByStatus(start, end)).thenReturn(List.of());
-        when(repository.findPerformanceLeads(start, end)).thenReturn(performance);
+        when(repository.countLeadsByStatus(WORKSPACE_ID, start, end)).thenReturn(List.of());
+        when(repository.findPerformanceLeads(WORKSPACE_ID, start, end)).thenReturn(performance);
     }
 
     private LeadRepository.StatusCountProjection statusCount(LeadStatus status, long count) {

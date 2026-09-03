@@ -7,22 +7,27 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.UUID;
 
 public interface ServiceOfferingRepository extends JpaRepository<ServiceOffering, UUID> {
-    boolean existsByNormalizedName(String normalizedName);
-    boolean existsByNormalizedNameAndIdNot(String normalizedName, UUID id);
+    boolean existsByWorkspaceId(UUID workspaceId);
+    boolean existsByWorkspaceIdAndNormalizedName(UUID workspaceId, String normalizedName);
+    boolean existsByWorkspaceIdAndNormalizedNameAndIdNot(
+            UUID workspaceId, String normalizedName, UUID id);
+    java.util.Optional<ServiceOffering> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     @Query("""
             select offering from ServiceOffering offering
-            where (:active is null or offering.active = :active)
+            where offering.workspace.id = :workspaceId
+              and (:active is null or offering.active = :active)
               and (:search is null
                    or locate(:search, lower(offering.name)) > 0
                    or locate(:search, lower(coalesce(offering.description, ''))) > 0)
             """)
-    Page<ServiceOffering> findManagement(String search, Boolean active, Pageable pageable);
+    Page<ServiceOffering> findManagementByWorkspaceId(
+            UUID workspaceId, String search, Boolean active, Pageable pageable);
 
     @Query("""
             select offering from ServiceOffering offering
-            where offering.active = true
+            where offering.workspace.id = :workspaceId and offering.active = true
               and (:search is null or locate(:search, lower(offering.name)) > 0)
             """)
-    Page<ServiceOffering> findActiveOptions(String search, Pageable pageable);
+    Page<ServiceOffering> findActiveOptionsByWorkspaceId(UUID workspaceId, String search, Pageable pageable);
 }

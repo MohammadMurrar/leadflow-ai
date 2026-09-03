@@ -2,6 +2,7 @@ package com.mohammadmurrar.leadflow.bootstrap;
 
 import com.mohammadmurrar.leadflow.user.User;
 import com.mohammadmurrar.leadflow.user.UserRepository;
+import com.mohammadmurrar.leadflow.settings.WorkspaceSettingsRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class AdminBootstrapRunner implements ApplicationRunner {
     private final AdminBootstrapProperties properties;
     private final UserRepository users;
+    private final WorkspaceSettingsRepository settings;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
     private final Environment environment;
@@ -25,10 +27,12 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     private final TransactionTemplate transactionTemplate;
 
     public AdminBootstrapRunner(AdminBootstrapProperties properties, UserRepository users,
+            WorkspaceSettingsRepository settings,
             PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate, Environment environment,
             ConfigurableApplicationContext context, PlatformTransactionManager transactionManager) {
         this.properties = properties;
         this.users = users;
+        this.settings = settings;
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
         this.environment = environment;
@@ -49,11 +53,15 @@ public class AdminBootstrapRunner implements ApplicationRunner {
             jdbcTemplate.queryForObject(
                     "SELECT singleton_key FROM workspace_settings WHERE singleton_key = 1 FOR UPDATE",
                     Byte.class);
+            var workspace = settings.findBySingletonKey((byte) 1)
+                    .filter(value -> value.getWorkspace() != null && value.getWorkspace().isActive())
+                    .map(value -> value.getWorkspace())
+                    .orElseThrow(() -> new IllegalStateException("Administrator bootstrap workspace is unavailable"));
             if (users.count() > 0) {
                 if (users.findByNormalizedEmail(normalizedEmail).isPresent()) return;
                 throw new IllegalStateException("Administrator bootstrap refused because a user already exists");
             }
-            users.saveAndFlush(User.createAdministrator(properties.email(), properties.displayName(),
+            users.saveAndFlush(User.createAdministrator(workspace, properties.email(), properties.displayName(),
                     passwordEncoder.encode(properties.password())));
         });
         context.close();

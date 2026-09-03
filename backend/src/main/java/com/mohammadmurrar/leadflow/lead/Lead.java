@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
 
 @Entity
 @Table(name = "leads", indexes = {
@@ -57,6 +58,10 @@ public class Lead {
     @Column(nullable = false, length = 20)
     private LeadPriority priority;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "workspace_id")
+    private Workspace workspace;
+
     private Integer qualificationScore;
 
     @Column(length = 120)
@@ -81,6 +86,15 @@ public class Lead {
                               LocalDate desiredStartDate, String message, String source) {
         return create(fullName, email, phone, company, requestedService, null,
                 estimatedBudget, desiredStartDate, message, source);
+    }
+
+    public static Lead create(Workspace workspace, String fullName, String email, String phone,
+            String company, String requestedService, ServiceOffering service,
+            BigDecimal estimatedBudget, LocalDate desiredStartDate, String message, String source) {
+        Lead lead = create(fullName, email, phone, company, requestedService, service,
+                estimatedBudget, desiredStartDate, message, source);
+        lead.workspace = java.util.Objects.requireNonNull(workspace, "Workspace is required");
+        return lead;
     }
 
     public static Lead create(String fullName, String email, String phone, String company,
@@ -187,6 +201,7 @@ public class Lead {
     public String getSource() { return source; }
     public LeadStatus getStatus() { return status; }
     public LeadPriority getPriority() { return priority; }
+    public Workspace getWorkspace() { return workspace; }
     public Integer getQualificationScore() { return qualificationScore; }
     public String getCategory() { return category; }
     public String getAiSummary() { return aiSummary; }

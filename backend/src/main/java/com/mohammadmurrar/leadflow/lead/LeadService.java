@@ -8,6 +8,7 @@ import com.mohammadmurrar.leadflow.qualification.QualificationAttemptService;
 import com.mohammadmurrar.leadflow.qualification.QualificationReliabilityProperties;
 import com.mohammadmurrar.leadflow.service.ServiceOffering;
 import com.mohammadmurrar.leadflow.service.ServiceOfferingService;
+import com.mohammadmurrar.leadflow.email.EmailIntentService;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,9 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import java.time.*;
 import java.util.Locale;
 import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.Workspace;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,24 +28,42 @@ public class LeadService {
     private final QualificationAttemptService qualificationAttemptService;
     private final QualificationReliabilityProperties reliabilityProperties;
     private final ServiceOfferingService serviceOfferingService;
+    private final EmailIntentService emailIntentService;
+    private final CurrentWorkspace currentWorkspace;
 
+    @Autowired
     public LeadService(
             LeadRepository repository,
             NotificationService notificationService,
             QualificationAttemptService qualificationAttemptService,
             QualificationReliabilityProperties reliabilityProperties,
-            ServiceOfferingService serviceOfferingService) {
+            ServiceOfferingService serviceOfferingService,
+            EmailIntentService emailIntentService, CurrentWorkspace currentWorkspace) {
         this.repository = repository;
         this.notificationService = notificationService;
         this.qualificationAttemptService = qualificationAttemptService;
         this.reliabilityProperties = reliabilityProperties;
         this.serviceOfferingService = serviceOfferingService;
+        this.emailIntentService = emailIntentService;
+        this.currentWorkspace = currentWorkspace;
     }
 
     @Transactional
     public LeadResponse create(CreateLeadRequest request) {
+        return create(request, currentWorkspace.requireActive());
+    }
+
+    @Transactional
+    public LeadResponse createForWorkspace(Workspace workspace, CreateLeadRequest request) {
+        return create(request, java.util.Objects.requireNonNull(workspace, "Workspace is required"));
+    }
+
+    private LeadResponse create(CreateLeadRequest request, Workspace workspace) {
         String email = request.email().trim().toLowerCase(Locale.ROOT);
-        if (repository.existsByEmailAndCreatedAtAfter(email, Instant.now().minus(Duration.ofHours(24)))) {
+        if (workspace == null) throw new IllegalStateException("Workspace ownership is required");
+        boolean duplicate = repository.existsByWorkspaceIdAndEmailAndCreatedAtAfter(
+                workspace.getId(), email, Instant.now().minus(Duration.ofHours(24)));
+        if (duplicate) {
             throw new DuplicateLeadException();
         }
         String source = request.source() == null || request.source().isBlank() ? "website" : request.source();
@@ -50,15 +72,18 @@ public class LeadService {
         if (hasServiceId == hasRequestedService) {
             throw new InvalidLeadServiceSelectionException();
         }
-        ServiceOffering serviceOffering = hasServiceId ? serviceOfferingService.getActive(request.serviceId()) : null;
+        ServiceOffering serviceOffering = hasServiceId
+                ? serviceOfferingService.getActive(workspace, request.serviceId()) : null;
         String requestedService = serviceOffering == null ? request.requestedService() : serviceOffering.getName();
-        Lead lead = Lead.create(request.fullName(), email, request.phone(), request.company(),
-                requestedService, serviceOffering, request.estimatedBudget(), request.desiredStartDate(),
-                request.message(), source);
+        Lead lead = Lead.create(workspace, request.fullName(), email, request.phone(), request.company(),
+                        requestedService, serviceOffering, request.estimatedBudget(), request.desiredStartDate(),
+                        request.message(), source);
         lead.startQualification();
         Lead savedLead = repository.save(lead);
         notificationService.createNewLeadNotification(savedLead);
         qualificationAttemptService.createInitialAttempt(savedLead);
+        repository.flush();
+        emailIntentService.enqueueNewLead(savedLead);
         return LeadResponse.from(savedLead);
     }
 
@@ -68,19 +93,20 @@ public class LeadService {
             throw new InvalidLeadFilterException();
         }
         String normalizedSearch = normalizeSearch(search);
+        UUID workspaceId = currentWorkspace.requireActiveId();
         Page<Lead> page;
         if (normalizedSearch == null) {
             if (status != null) {
-                page = repository.findByStatus(status, pageable);
+                page = repository.findByWorkspaceIdAndStatus(workspaceId, status, pageable);
             } else if (qualificationState != null) {
-                page = repository.findByStatusIn(qualificationState.statuses(), pageable);
+                page = repository.findByWorkspaceIdAndStatusIn(workspaceId, qualificationState.statuses(), pageable);
             } else {
-                page = repository.findAll(pageable);
+                page = repository.findAllByWorkspaceId(workspaceId, pageable);
             }
         } else if (qualificationState != null) {
-            page = repository.searchByStatuses(normalizedSearch, qualificationState.statuses(), pageable);
+            page = repository.searchByStatuses(workspaceId, normalizedSearch, qualificationState.statuses(), pageable);
         } else {
-            page = repository.search(normalizedSearch, status, pageable);
+            page = repository.search(workspaceId, normalizedSearch, status, pageable);
         }
         return page.map(LeadResponse::from);
     }
@@ -124,7 +150,7 @@ public class LeadService {
         if (!reliabilityProperties.legacyCallbackEnabled()) {
             throw new NotFoundException("Automation endpoint is not available");
         }
-        Lead lead = get(id);
+        Lead lead = getForAutomation(id);
         if (lead.hasSuccessfullyQualified()) {
             return LeadResponse.from(lead);
         }
@@ -136,7 +162,13 @@ public class LeadService {
     }
 
     private Lead get(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new NotFoundException("Lead not found: " + id));
+        return repository.findByIdAndWorkspaceId(id, currentWorkspace.requireActiveId())
+                .orElseThrow(() -> new NotFoundException("Lead not found"));
+    }
+
+    private Lead getForAutomation(UUID id) {
+        return repository.findActiveByIdForAutomation(id)
+                .orElseThrow(() -> new NotFoundException("Lead not found"));
     }
 
     public static class InvalidLeadSearchException extends RuntimeException {

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import com.mohammadmurrar.leadflow.workspace.*;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.everyItem;
@@ -29,9 +30,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class QualificationWorkspaceApiTest {
     @Autowired MockMvc mockMvc;
     @Autowired LeadRepository repository;
+    @Autowired WorkspaceRepository workspaces;
+    private Workspace workspace;
 
     @BeforeEach
     void setUp() {
+        workspace = workspaces.saveAndFlush(com.mohammadmurrar.leadflow.support.WorkspaceTestFixtures.activeWorkspaceA());
         save("New Queue", "new.queue@example.com", "Queue Intake", LeadStatus.NEW, null);
         save("Processing Queue", "processing.queue@example.com", "Queue Automation", LeadStatus.QUALIFYING, null);
         save("Qualified Queue", "qualified.queue@example.com", "Queue Automation", LeadStatus.QUALIFIED, 91);
@@ -108,7 +112,7 @@ class QualificationWorkspaceApiTest {
     }
 
     private void save(String name, String email, String service, LeadStatus status, Integer score) {
-        Lead lead = Lead.create(name, email, null, name + " Company", service,
+        Lead lead = Lead.create(workspace, name, email, null, name + " Company", service, null,
                 new BigDecimal("1000.00"), LocalDate.parse("2026-09-01"),
                 "A sufficiently detailed qualification workspace test request.", "test");
         if (status == LeadStatus.QUALIFYING) {

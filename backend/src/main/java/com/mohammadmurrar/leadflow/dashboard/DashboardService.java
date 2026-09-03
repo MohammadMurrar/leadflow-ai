@@ -19,6 +19,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import com.mohammadmurrar.leadflow.workspace.CurrentWorkspace;
 
 @Service
 @Transactional(readOnly = true)
@@ -29,14 +31,16 @@ public class DashboardService {
 
     private final LeadRepository repository;
     private final Clock clock;
+    private final CurrentWorkspace currentWorkspace;
 
     @Autowired
-    public DashboardService(LeadRepository repository) {
-        this(repository, Clock.systemUTC());
+    public DashboardService(LeadRepository repository, CurrentWorkspace currentWorkspace) {
+        this(repository, currentWorkspace, Clock.systemUTC());
     }
 
-    DashboardService(LeadRepository repository, Clock clock) {
+    DashboardService(LeadRepository repository, CurrentWorkspace currentWorkspace, Clock clock) {
         this.repository = repository;
+        this.currentWorkspace = currentWorkspace;
         this.clock = clock;
     }
 
@@ -50,20 +54,21 @@ public class DashboardService {
         LocalDate today = context.today();
         Instant start = context.start();
         Instant end = context.end();
+        UUID workspaceId = currentWorkspace.requireActiveId();
 
         Map<LeadStatus, Long> statusCounts = emptyStatusCounts();
-        repository.countLeadsByStatus(start, end).forEach(result ->
+        repository.countLeadsByStatus(workspaceId, start, end).forEach(result ->
                 statusCounts.put(result.getStatus(), result.getLeadCount()));
 
         long totalLeads = statusCounts.values().stream().mapToLong(Long::longValue).sum();
         long qualifiedLeads = successfullyQualifiedCount(statusCounts);
         BigDecimal qualificationRate = percentage(qualifiedLeads, totalLeads);
-        BigDecimal pipelineValue = scale(repository.sumEstimatedBudget(start, end), MONEY_SCALE);
-        BigDecimal averageAiScore = scale(repository.averageQualificationScore(start, end), RATE_SCALE);
+        BigDecimal pipelineValue = scale(repository.sumEstimatedBudget(workspaceId, start, end), MONEY_SCALE);
+        BigDecimal averageAiScore = scale(repository.averageQualificationScore(workspaceId, start, end), RATE_SCALE);
 
-        LocalDate firstDate = firstPerformanceDate(range, today, end);
+        LocalDate firstDate = firstPerformanceDate(workspaceId, range, today, end);
         List<DashboardStatsResponse.PerformancePoint> performance = performanceSeries(
-                firstDate, today, repository.findPerformanceLeads(start, end));
+                firstDate, today, repository.findPerformanceLeads(workspaceId, start, end));
 
         return new DashboardStatsResponse(totalLeads, qualifiedLeads, qualificationRate,
                 pipelineValue, averageAiScore, statusCounts, performance);
@@ -79,11 +84,11 @@ public class DashboardService {
         return new RangeContext(range.value, range.days, today, start, end);
     }
 
-    private LocalDate firstPerformanceDate(DashboardRange range, LocalDate today, Instant end) {
+    private LocalDate firstPerformanceDate(UUID workspaceId, DashboardRange range, LocalDate today, Instant end) {
         if (range.days != null) {
             return today.minusDays(range.days - 1L);
         }
-        Instant earliest = repository.findEarliestCreatedAtBefore(end);
+        Instant earliest = repository.findEarliestCreatedAtBefore(workspaceId, end);
         return earliest == null ? today : earliest.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
