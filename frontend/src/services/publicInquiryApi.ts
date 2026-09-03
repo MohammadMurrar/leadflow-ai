@@ -34,13 +34,26 @@ function isCsrfResponse(value: unknown): value is CsrfResponse {
         && response.headerName === EXPECTED_CSRF_HEADER
 }
 
-export async function getPublicInquiryConfiguration(): Promise<PublicInquiryConfiguration> {
-    const response = await publicApi.get<PublicInquiryConfiguration>('/public/inquiry-config')
+function workspacePath(workspaceSlug: string | undefined, suffix: 'inquiry-config' | 'leads') {
+    return workspaceSlug === undefined
+        ? `/public/${suffix}`
+        : `/public/workspaces/${encodeURIComponent(workspaceSlug)}/${suffix}`
+}
+
+export async function getPublicInquiryConfiguration(
+    workspaceSlug?: string,
+    signal?: AbortSignal,
+): Promise<PublicInquiryConfiguration> {
+    const response = await publicApi.get<PublicInquiryConfiguration>(
+        workspacePath(workspaceSlug, 'inquiry-config'),
+        { signal },
+    )
     return response.data
 }
 
 export async function submitPublicInquiry(
     request: PublicLeadRequest,
+    workspaceSlug?: string,
 ): Promise<PublicLeadSubmissionResponse> {
     const csrfResponse = await publicApi.get<unknown>('/auth/csrf')
     if (!isCsrfResponse(csrfResponse.data)) {
@@ -48,9 +61,8 @@ export async function submitPublicInquiry(
     }
 
     const response = await publicApi.post<PublicLeadSubmissionResponse>(
-        '/public/leads',
+        workspacePath(workspaceSlug, 'leads'),
         request,
-        { headers: { [EXPECTED_CSRF_HEADER]: csrfResponse.data.token } },
     )
     return response.data
 }

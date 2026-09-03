@@ -6,6 +6,14 @@ export interface PublicService {
 export interface PublicInquiryConfiguration {
     workspaceName: string
     description: string | null
+    publicBrandName: string
+    publicTagline: string | null
+    publicLogoPath: string | null
+    currency: SupportedCurrency
+    responseTimeText: string
+    privacyPolicyUrl: string | null
+    privacyNoticeText: string | null
+    privacyNoticeVersion: string | null
     services: PublicService[]
 }
 
@@ -31,3 +39,4 @@ export interface PublicInquiryApiError {
     message: string
     details: string[]
 }
+import type { SupportedCurrency } from './currency'

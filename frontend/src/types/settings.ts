@@ -1,5 +1,6 @@
 import type { DashboardRange } from './dashboard'
 import type { QualificationState } from './lead'
+import type { SupportedCurrency } from './currency'
 
 export type DefaultLeadSort =
     | 'createdAt,desc'
@@ -14,6 +15,16 @@ export interface WorkspaceSettings {
     workspaceName: string
     contactEmail: string | null
     description: string | null
+    publicBrandName: string | null
+    publicTagline: string | null
+    publicLogoPath: string | null
+    timeZone: string
+    currency: SupportedCurrency
+    responseTimeText: string
+    privacyPolicyUrl: string | null
+    privacyNoticeText: string | null
+    privacyNoticeVersion: string | null
+    notificationRecipients: string[]
     updatedAt: string
 }
 
@@ -22,6 +33,16 @@ export interface UpdateWorkspaceSettingsRequest {
     workspaceName: string
     contactEmail: string | null
     description: string | null
+    publicBrandName: string | null
+    publicTagline: string | null
+    publicLogoPath: string | null
+    timeZone: string
+    currency: SupportedCurrency
+    responseTimeText: string
+    privacyPolicyUrl: string | null
+    privacyNoticeText: string | null
+    privacyNoticeVersion: string | null
+    notificationRecipients: string[]
 }
 
 export interface AutomationStatus {

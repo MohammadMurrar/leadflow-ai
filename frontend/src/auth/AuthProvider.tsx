@@ -35,10 +35,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                 await obtainCsrfToken()
                 const currentUser = await getCurrentUser()
                 if (active) setUser(currentUser)
-            } catch (error) {
-                if (active && (!axios.isAxiosError(error) || error.response?.status !== 401)) {
-                    setLoginError('Unable to connect securely. Please try again.')
-                }
+            } catch {
+                // Bootstrap failures leave the user signed out without becoming login-submission feedback.
             } finally {
                 if (active) setInitializing(false)
             }
@@ -63,7 +61,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             setLoginError(axios.isAxiosError(error) && error.response?.status === 401
                 ? 'Invalid email or password.'
-                : 'Sign in failed. Please try again.')
+                : 'Unable to connect securely. Please try again.')
         } finally {
             setLoginPending(false)
         }

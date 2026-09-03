@@ -415,6 +415,7 @@ function App() {
   const workspaceName = workspaceQuery.data?.workspaceName ?? 'My Workspace'
   const workspaceDescription = workspaceQuery.data?.description
       ?? `Here’s what’s happening with ${workspaceName}’s sales pipeline today.`
+  const workspaceCurrency = workspaceQuery.data?.currency ?? 'USD'
 
   return (
       <div className="min-h-screen bg-[#f6f7fb] text-slate-900">
@@ -616,6 +617,7 @@ function App() {
           <RouteLoadBoundary mode="content" resetKey={location.pathname}>
           {isLeadsPage ? (
               <LeadsPage
+                  currency={workspaceCurrency}
                   page={displayedLeadsPage}
                   leads={leads}
                   searchInput={leadSearchInput}
@@ -639,6 +641,7 @@ function App() {
               />
           ) : isQualificationPage ? (
               <AiQualificationPage
+                  currency={workspaceCurrency}
                   page={displayedLeadsPage}
                   leads={leads}
                   summary={qualificationSummary}
@@ -666,6 +669,7 @@ function App() {
               />
           ) : isAnalyticsPage ? (
               <AnalyticsPage
+                  currency={workspaceCurrency}
                   data={analytics}
                   range={analyticsRange}
                   isLoading={isAnalyticsLoading}
@@ -681,6 +685,7 @@ function App() {
               <SettingsPage preferences={interfacePreferences} onPreferencesSaved={setInterfacePreferences} />
           ) : (
               <OverviewPage
+                  currency={workspaceCurrency}
                   userDisplayName={user.displayName}
                   workspaceDescription={workspaceDescription}
                   selectedRange={selectedRange}
@@ -824,7 +829,7 @@ function App() {
                     <label className="text-sm font-medium text-slate-700">
                       Estimated budget
                       <div className="relative mt-2">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">{workspaceCurrency}</span>
                         <input
                             name="estimatedBudget"
                             type="number"
@@ -835,7 +840,7 @@ function App() {
                             value={form.estimatedBudget}
                             onChange={(event) => updateFormField('estimatedBudget', event.target.value)}
                             placeholder="4500"
-                            className={`h-11 w-full rounded-xl border pl-8 pr-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.estimatedBudget ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                            className={`h-11 w-full rounded-xl border pl-14 pr-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.estimatedBudget ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
                         />
                       </div>
                       {fieldErrors.estimatedBudget && <span id="estimatedBudget-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.estimatedBudget}</span>}

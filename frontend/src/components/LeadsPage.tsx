@@ -2,6 +2,8 @@ import { Clock3, Search, Users, X } from 'lucide-react'
 import type { Lead, LeadStatus } from '../types/lead'
 import type { PageResponse } from '../types/page'
 import LeadRowActions from './LeadRowActions'
+import type { SupportedCurrency } from '../types/currency'
+import { formatMoney } from '../utils/money'
 
 export type LeadSort =
     | 'createdAt,desc'
@@ -10,6 +12,7 @@ export type LeadSort =
     | 'estimatedBudget,desc'
 
 interface LeadsPageProps {
+    currency: SupportedCurrency
     page: PageResponse<Lead> | null
     leads: Lead[]
     searchInput: string
@@ -42,6 +45,7 @@ function getInitials(fullName: string) {
 }
 
 export default function LeadsPage({
+    currency,
     page,
     leads,
     searchInput,
@@ -230,9 +234,9 @@ export default function LeadsPage({
                                                 {lead.status.replaceAll('_', ' ')}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-semibold text-slate-700">{lead.estimatedBudget !== null ? `$${lead.estimatedBudget.toLocaleString()}` : '—'}</td>
+                                        <td className="px-6 py-4 text-sm font-semibold text-slate-700">{formatMoney(lead.estimatedBudget, currency)}</td>
                                         <td className="px-6 py-4">
-                                            <LeadRowActions lead={lead} />
+                                            <LeadRowActions lead={lead} currency={currency} />
                                         </td>
                                     </tr>
                                 ))}

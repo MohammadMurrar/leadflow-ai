@@ -15,6 +15,9 @@ import {
     publicInquiryFormSchema,
 } from '../utils/publicInquiryForm'
 import type {
+    PublicLeadRequest,
+} from '../types/publicInquiry'
+import type {
     PublicInquiryFormField,
     PublicInquiryFormValues,
     ValidatedPublicInquiryForm,
@@ -40,15 +43,16 @@ function ErrorText({ id, error }: { id: string; error?: FieldError }) {
     return <p id={id} className="mt-1.5 text-sm font-medium text-rose-700">{error.message}</p>
 }
 
-export default function InquiryPage() {
+export default function InquiryPage({ workspaceSlug }: { workspaceSlug?: string | null }) {
     const [submitted, setSubmitted] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
     const formAlertRef = useRef<HTMLDivElement>(null)
     const successHeadingRef = useRef<HTMLHeadingElement>(null)
 
     const configuration = useQuery({
-        queryKey: ['public-inquiry', 'configuration'],
-        queryFn: getPublicInquiryConfiguration,
+        queryKey: ['public-inquiry', 'configuration', workspaceSlug ?? 'legacy'],
+        queryFn: ({ signal }) => getPublicInquiryConfiguration(workspaceSlug ?? undefined, signal),
+        enabled: workspaceSlug !== null,
         retry: 1,
     })
 
@@ -66,7 +70,7 @@ export default function InquiryPage() {
     })
 
     const submission = useMutation({
-        mutationFn: submitPublicInquiry,
+        mutationFn: (request: PublicLeadRequest) => submitPublicInquiry(request, workspaceSlug ?? undefined),
         retry: false,
         onSuccess: () => {
             setFormError(null)
@@ -130,22 +134,24 @@ export default function InquiryPage() {
 
                 <section className="mx-auto mt-8 grid max-w-5xl gap-6 lg:mt-12 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.5fr)] lg:items-start">
                     <aside className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-700 to-violet-700 p-6 text-white shadow-xl shadow-indigo-100 sm:p-8">
-                        {configuration.isPending ? (
+                        {configuration.isPending && workspaceSlug !== null ? (
                             <div role="status" className="flex items-center gap-3 text-sm font-medium text-indigo-100">
                                 <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" aria-hidden="true" />
                                 Loading inquiry details…
                             </div>
-                        ) : configuration.isError ? (
+                        ) : workspaceSlug === null || configuration.isError || !configuration.data ? (
                             <div role="alert">
                                 <h2 className="text-xl font-bold">Inquiry details are unavailable</h2>
                                 <p className="mt-2 text-sm leading-6 text-indigo-100">We couldn’t load the available services. Please try again.</p>
-                                <button
-                                    type="button"
-                                    onClick={() => void configuration.refetch()}
-                                    className="mt-5 min-h-11 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50 focus:outline-none focus:ring-4 focus:ring-white/40"
-                                >
-                                    Retry
-                                </button>
+                                {workspaceSlug !== null && (
+                                    <button
+                                        type="button"
+                                        onClick={() => void configuration.refetch()}
+                                        className="mt-5 min-h-11 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50 focus:outline-none focus:ring-4 focus:ring-white/40"
+                                    >
+                                        Retry
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <>
@@ -251,7 +257,7 @@ export default function InquiryPage() {
                                         </div>
 
                                         <div>
-                                            <label htmlFor="estimatedBudget" className="text-sm font-bold text-slate-700">Estimated budget <span className="font-normal text-slate-400">(optional)</span></label>
+                                            <label htmlFor="estimatedBudget" className="text-sm font-bold text-slate-700">Estimated budget{configuration.data ? ` (${configuration.data.currency})` : ''} <span className="font-normal text-slate-400">(optional)</span></label>
                                             <input id="estimatedBudget" type="text" inputMode="decimal" autoComplete="off" maxLength={13} aria-invalid={Boolean(errors.estimatedBudget)} aria-describedby={errors.estimatedBudget ? 'estimatedBudget-error' : 'estimatedBudget-help'} className={`${inputClass} ${errors.estimatedBudget ? invalidInputClass : ''}`} placeholder="5000.00" {...register('estimatedBudget')} />
                                             <p id="estimatedBudget-help" className="mt-1.5 text-xs text-slate-500">Enter an amount without currency symbols.</p>
                                             <ErrorText id="estimatedBudget-error" error={errors.estimatedBudget} />

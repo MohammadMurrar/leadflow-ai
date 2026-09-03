@@ -5,11 +5,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { getLead, getQualificationAttempts, retryQualification, updateLeadStatus } from '../services/leadApi'
 import type { Lead, LeadStatus } from '../types/lead'
+import type { SupportedCurrency } from '../types/currency'
+import { formatMoney } from '../utils/money'
 
 let closeActiveMenu: (() => void) | null = null
 
 interface LeadRowActionsProps {
     lead: Lead
+    currency: SupportedCurrency
 }
 
 interface MenuPosition {
@@ -36,11 +39,6 @@ function formatDate(value: string | null, dateOnly = false) {
         : { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-function formatCurrency(value: number | null) {
-    if (value === null || !Number.isFinite(value)) return 'Not provided'
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(value)
-}
-
 function Detail({ label, value, multiline = false }: { label: string; value: string; multiline?: boolean }) {
     return (
         <div className={multiline ? 'sm:col-span-2' : ''}>
@@ -50,7 +48,7 @@ function Detail({ label, value, multiline = false }: { label: string; value: str
     )
 }
 
-export default function LeadRowActions({ lead }: LeadRowActionsProps) {
+export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) {
     const buttonRef = useRef<HTMLButtonElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
     const modalRef = useRef<HTMLDivElement>(null)
@@ -392,7 +390,7 @@ export default function LeadRowActions({ lead }: LeadRowActionsProps) {
                             {details && <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
                                 <Detail label="Full name" value={display(details.fullName)} /><Detail label="Email" value={display(details.email)} />
                                 <Detail label="Phone" value={display(details.phone)} /><Detail label="Company" value={display(details.company)} />
-                                <Detail label="Requested service" value={display(details.requestedService)} /><Detail label="Estimated budget" value={formatCurrency(details.estimatedBudget)} />
+                                <Detail label="Requested service" value={display(details.requestedService)} /><Detail label="Estimated budget" value={formatMoney(details.estimatedBudget, currency, 'Not provided')} />
                                 <Detail label="Desired start date" value={formatDate(details.desiredStartDate, true)} /><Detail label="Source" value={display(details.source)} />
                                 <Detail label="Status" value={humanize(details.status)} /><Detail label="Priority" value={humanize(details.priority)} />
                                 <Detail label="Qualification score" value={display(details.qualificationScore)} /><Detail label="Category" value={display(details.category)} />

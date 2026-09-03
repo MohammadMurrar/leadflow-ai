@@ -1,0 +1,15 @@
+import { ArrowLeft, Mail } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { requestPasswordReset } from '../auth/anonymousAuthApi'
+import AuthLayout from './AuthLayout'
+
+export const RESET_REQUEST_SUCCESS = 'If an eligible account exists for that email, password reset instructions will be sent.'
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState(''); const [pending, setPending] = useState(false); const [success, setSuccess] = useState(false); const [error, setError] = useState<string | null>(null)
+  const submitting = useRef(false); const emailRef = useRef<HTMLInputElement>(null); const statusRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { emailRef.current?.focus() }, []); useEffect(() => { if (success || error) statusRef.current?.focus() }, [success, error])
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (submitting.current || pending) return; if (!emailRef.current?.checkValidity()) { emailRef.current?.reportValidity(); return } submitting.current = true; setPending(true); setError(null); try { await requestPasswordReset(email); setSuccess(true); setEmail('') } catch { setError('Password reset could not be requested. Please try again later.') } finally { setPending(false); submitting.current = false } }
+  return <AuthLayout><section className="auth-card" aria-labelledby="forgot-heading"><p className="auth-eyebrow">Account recovery</p><h1 id="forgot-heading" className="auth-heading">Reset your password</h1><p className="auth-copy">Enter your administrator email. We’ll send instructions when the account is eligible.</p>{success ? <div ref={statusRef} tabIndex={-1} role="status" className="auth-success mt-7"><h2 className="font-semibold text-emerald-950">Check your inbox</h2><p className="mt-2 text-sm leading-6 text-emerald-800">{RESET_REQUEST_SUCCESS}</p></div> : <form className="mt-8 space-y-5" onSubmit={submit}><label className="auth-label">Email address<span className="auth-input-wrap"><Mail className="auth-input-icon" /><input ref={emailRef} name="email" type="email" autoComplete="username" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} disabled={pending} className="auth-input" /></span></label>{error && <div ref={statusRef} tabIndex={-1} className="auth-alert" role="alert">{error}</div>}<button type="submit" disabled={pending} className="auth-submit">{pending ? 'Sending securely…' : 'Send reset instructions'}</button></form>}<Link to="/login" className="auth-link mt-7 inline-flex items-center gap-2"><ArrowLeft className="h-4 w-4" />Back to sign in</Link></section></AuthLayout>
+}

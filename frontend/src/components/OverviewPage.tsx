@@ -13,8 +13,11 @@ import LeadRowActions from './LeadRowActions'
 import type { DashboardRange, DashboardStats } from '../types/dashboard'
 import type { Lead } from '../types/lead'
 import type { PageResponse } from '../types/page'
+import type { SupportedCurrency } from '../types/currency'
+import { formatMoney } from '../utils/money'
 
 interface OverviewPageProps {
+    currency: SupportedCurrency
     userDisplayName: string
     workspaceDescription: string
     selectedRange: DashboardRange
@@ -36,15 +39,6 @@ interface OverviewPageProps {
     isError: boolean
     refetchLeads: () => void
     getInitials: (fullName: string) => string
-}
-
-function formatCurrency(value: number) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        notation: value >= 1_000 ? 'compact' : 'standard',
-        maximumFractionDigits: value >= 1_000 ? 1 : 2,
-    }).format(value)
 }
 
 function formatChartDate(value: string) {
@@ -72,6 +66,7 @@ const dashboardRangeLabels: Record<DashboardRange, string> = {
 }
 
 export default function OverviewPage({
+    currency,
     userDisplayName,
     workspaceDescription,
     selectedRange,
@@ -113,7 +108,7 @@ export default function OverviewPage({
         },
         {
             label: 'Pipeline Value',
-            value: dashboardStats ? formatCurrency(dashboardStats.pipelineValue) : '—',
+            value: dashboardStats ? formatMoney(dashboardStats.pipelineValue, currency) : '—',
             description: 'Total estimated opportunity value',
             icon: CircleDollarSign,
             iconStyle: 'bg-violet-50 text-violet-600',
@@ -610,12 +605,12 @@ export default function OverviewPage({
 
                             <td className="px-6 py-4 text-sm font-semibold text-slate-700">
                               {lead.estimatedBudget !== null
-                                  ? `$${lead.estimatedBudget.toLocaleString()}`
+                                  ? formatMoney(lead.estimatedBudget, currency)
                                   : '—'}
                             </td>
 
                             <td className="px-6 py-4">
-                              <LeadRowActions lead={lead} />
+                              <LeadRowActions lead={lead} currency={currency} />
                             </td>
                           </tr>
                       ))}

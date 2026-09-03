@@ -2,10 +2,12 @@ import { AlertTriangle, Bot, CheckCircle2, Clock3, Search, Sparkles, X } from 'l
 import type { DashboardStats } from '../types/dashboard'
 import type { Lead, QualificationState } from '../types/lead'
 import type { PageResponse } from '../types/page'
-import LeadRowActions from './LeadRowActions'
+import LeadRowActionsBase from './LeadRowActions'
 import type { LeadSort } from './LeadsPage'
+import type { SupportedCurrency } from '../types/currency'
 
 interface AiQualificationPageProps {
+    currency: SupportedCurrency
     page: PageResponse<Lead> | null
     leads: Lead[]
     summary: DashboardStats | undefined
@@ -42,11 +44,14 @@ function getInitials(fullName: string) {
 }
 
 export default function AiQualificationPage({
-    page, leads, summary, searchInput, qualificationState, sort,
+    currency, page, leads, summary, searchInput, qualificationState, sort,
     isLoading, isFetching, isPlaceholderData, isError,
     isSummaryLoading, isSummaryError, onSearchChange, onStateChange,
     onSortChange, onPageChange, onRetry, onSummaryRetry,
 }: AiQualificationPageProps) {
+    const LeadRowActions = ({ lead }: { lead: Lead }) => (
+        <LeadRowActionsBase lead={lead} currency={currency} />
+    )
     const processing = (summary?.statusCounts.NEW ?? 0) + (summary?.statusCounts.QUALIFYING ?? 0)
     const failed = summary?.statusCounts.AUTOMATION_FAILED ?? 0
     const hasFilters = searchInput.trim().length > 0 || qualificationState !== ''

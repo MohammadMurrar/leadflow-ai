@@ -19,8 +19,11 @@ import {
 import type { AnalyticsBreakdownItem, AnalyticsResponse } from '../types/analytics'
 import type { DashboardRange } from '../types/dashboard'
 import type { LeadStatus } from '../types/lead'
+import type { SupportedCurrency } from '../types/currency'
+import { formatMoney } from '../utils/money'
 
 interface AnalyticsPageProps {
+    currency: SupportedCurrency
     data: AnalyticsResponse | undefined
     range: DashboardRange
     isLoading: boolean
@@ -44,12 +47,6 @@ const statusOrder: LeadStatus[] = [
 
 function humanize(value: string) {
     return value.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function formatCurrency(value: number) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency', currency: 'USD', maximumFractionDigits: 2,
-    }).format(value)
 }
 
 function formatPeriod(value: string, monthly: boolean, full = false) {
@@ -94,9 +91,11 @@ function BreakdownCard({
 }
 
 export default function AnalyticsPage({
+    currency,
     data, range, isLoading, isFetching, isPlaceholderData, isError,
     onRangeChange, onRetry,
 }: AnalyticsPageProps) {
+    const formatCurrency = (value: number) => formatMoney(value, currency)
     const monthly = data?.performanceGranularity === 'MONTHLY'
     const performanceTickInterval = data
         ? Math.max(0, Math.ceil(data.performance.length / (range === '90' ? 7 : 10)) - 1)
@@ -112,7 +111,7 @@ export default function AnalyticsPage({
         { label: 'Total leads', value: data.totalLeads.toLocaleString(), detail: 'Created in this period', icon: Users, style: 'bg-blue-50 text-blue-600' },
         { label: 'Successfully qualified', value: data.qualifiedLeads.toLocaleString(), detail: 'Qualified and later lifecycle states', icon: Target, style: 'bg-emerald-50 text-emerald-600' },
         { label: 'Qualification rate', value: `${data.qualificationRate.toFixed(1)}%`, detail: 'Successfully qualified ÷ total leads', icon: TrendingUp, style: 'bg-indigo-50 text-indigo-600' },
-        { label: 'Pipeline value', value: formatCurrency(data.pipelineValue), detail: 'Total estimated opportunity value', icon: CircleDollarSign, style: 'bg-amber-50 text-amber-600' },
+        { label: 'Pipeline value', value: formatMoney(data.pipelineValue, currency), detail: 'Total estimated opportunity value', icon: CircleDollarSign, style: 'bg-amber-50 text-amber-600' },
         { label: 'Average AI score', value: data.averageAiScore.toFixed(1), detail: 'Only leads with a real score', icon: Sparkles, style: 'bg-violet-50 text-violet-600' },
     ] : []
 
