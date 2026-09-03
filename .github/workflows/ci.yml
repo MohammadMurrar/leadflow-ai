@@ -117,7 +117,7 @@ jobs:
           N8N_ENCRYPTION_KEY: safe-ci-n8n-placeholder-only
           LEADFLOW_PUBLIC_FRONTEND_URL: https://leadflow.example.invalid
           PASSWORD_RESET_ACTIVE_KEY_VERSION: v1
-          PASSWORD_RESET_HMAC_KEYS: v1=c2FmZS1jaS1vbmx5LXBhc3N3b3JkLXJlc2V0LWtleS0zMmJ5dGVz
+          PASSWORD_RESET_HMAC_KEYS: v1=ci-placeholder-not-a-real-key
           EMAIL_SMTP_HOST: smtp.example.invalid
           EMAIL_SMTP_USERNAME: safe-ci-smtp-user
           EMAIL_SMTP_PASSWORD: safe-ci-smtp-password
