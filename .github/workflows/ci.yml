@@ -88,12 +88,15 @@ jobs:
       - name: Validate Nginx production configuration
         run: |
           cert_dir="$(mktemp -d)"
-          trap 'rm -rf "$cert_dir"' EXIT
+          trap 'sudo rm -rf -- "$cert_dir"' EXIT
           mkdir -p "$cert_dir/live/leadflow.example.invalid"
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
             -subj '/CN=leadflow.example.invalid' \
             -keyout "$cert_dir/live/leadflow.example.invalid/privkey.pem" \
             -out "$cert_dir/live/leadflow.example.invalid/fullchain.pem" >/dev/null 2>&1
+          chmod 700 "$cert_dir" "$cert_dir/live" "$cert_dir/live/leadflow.example.invalid"
+          chmod 400 "$cert_dir/live/leadflow.example.invalid/privkey.pem" "$cert_dir/live/leadflow.example.invalid/fullchain.pem"
+          sudo chown -R 101:101 "$cert_dir"
           docker run --rm \
             -e APP_DOMAIN=leadflow.example.invalid \
             --add-host backend:127.0.0.1 \
