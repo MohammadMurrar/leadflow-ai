@@ -60,7 +60,7 @@ describe('real authentication provider regression', () => {
   })
 
   it('preserves the login request and successful default destination', async () => {
-    loginMock.mockResolvedValue({ id: 'user-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
+    loginMock.mockResolvedValue({ id: 'user-id', workspaceId: 'workspace-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
     const storage = vi.spyOn(Storage.prototype, 'setItem')
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     const user = userEvent.setup()
@@ -90,7 +90,7 @@ describe('real authentication provider regression', () => {
   })
 
   it('clears stale submission feedback when the next deliberate login succeeds', async () => {
-    loginMock.mockRejectedValueOnce(unauthorized(401)).mockResolvedValueOnce({ id: 'user-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
+    loginMock.mockRejectedValueOnce(unauthorized(401)).mockResolvedValueOnce({ id: 'user-id', workspaceId: 'workspace-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
     const user = userEvent.setup()
     renderProvider()
     await user.type(await screen.findByLabelText('Email address'), 'admin@example.invalid')

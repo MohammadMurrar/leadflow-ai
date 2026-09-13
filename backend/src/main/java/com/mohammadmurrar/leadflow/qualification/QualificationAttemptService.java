@@ -69,6 +69,7 @@ public class QualificationAttemptService {
     public QualificationOutcomeResponse succeed(UUID leadId, UUID attemptId, QualificationSuccessRequest request) {
         QualificationAttempt attempt = lockedActiveAttempt(attemptId);
         Lead lead = lockedCallbackLead(leadId, attempt);
+        requireAcceptedExecution(attempt, request.workflowExecutionId());
         byte[] fingerprint = fingerprint("SUCCESS", request.score(), request.priority(), request.category().trim(),
                 request.summary().trim(), request.recommendedReply().trim(), request.workflowExecutionId().trim());
         if (attempt.getStatus().isTerminal()) {
@@ -88,6 +89,7 @@ public class QualificationAttemptService {
     public QualificationOutcomeResponse fail(UUID leadId, UUID attemptId, QualificationFailureRequest request) {
         QualificationAttempt attempt = lockedActiveAttempt(attemptId);
         Lead lead = lockedCallbackLead(leadId, attempt);
+        requireAcceptedExecution(attempt, request.workflowExecutionId());
         String safeMessage = "Automated qualification did not complete.";
         byte[] fingerprint = fingerprint("FAILURE", request.failureCode(), safeMessage,
                 request.workflowExecutionId().trim());
@@ -208,6 +210,14 @@ public class QualificationAttemptService {
         if (lead == null || lead.getWorkspace() == null
                 || !lead.getWorkspace().getId().equals(attempt.getWorkspace().getId())) return null;
         return lead;
+    }
+
+    private void requireAcceptedExecution(QualificationAttempt attempt, String executionId) {
+        if (executionId == null || executionId.isBlank() || executionId.length() > 100
+                || attempt.getWorkflowExecutionId() == null
+                || !attempt.getWorkflowExecutionId().equals(executionId.trim())) {
+            throw new ConflictException("Qualification execution does not match the accepted attempt");
+        }
     }
 
     private void requireProcessing(Lead lead, QualificationAttempt attempt) {

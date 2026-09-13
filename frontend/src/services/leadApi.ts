@@ -15,14 +15,47 @@ const api = axios.create({
 
 let unauthorizedHandler: (() => void) | undefined
 
+// This capability controls request lifetime only; it never supplies authorization or a workspace.
+let privateRequests: AbortController | undefined
+const requestLifetimes = new WeakMap<object, AbortController>()
+
+export function activatePrivateRequests() {
+    privateRequests?.abort()
+    const lifetime = new AbortController()
+    privateRequests = lifetime
+    return () => {
+        lifetime.abort()
+        if (privateRequests === lifetime) privateRequests = undefined
+    }
+}
+
+api.interceptors.request.use(config => {
+    if (!config.url?.startsWith('/auth/')) {
+        const lifetime = privateRequests
+        if (!lifetime || lifetime.signal.aborted) throw new axios.CanceledError('Session ended')
+        requestLifetimes.set(config, lifetime)
+        config.signal = config.signal
+            ? AbortSignal.any([config.signal as AbortSignal, lifetime.signal]) : lifetime.signal
+    }
+    return config
+}, (error: unknown) => { throw error }, { synchronous: true })
+
 export function setUnauthorizedHandler(handler: (() => void) | undefined) {
     unauthorizedHandler = handler
 }
 
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const lifetime = requestLifetimes.get(response.config)
+        if (lifetime?.signal.aborted) throw new axios.CanceledError('Session ended')
+        return response
+    },
     (error: unknown) => {
-        if (axios.isAxiosError(error) && error.response?.status === 401
+        if (axios.isAxiosError(error) && error.config
+            && requestLifetimes.get(error.config)?.signal.aborted) {
+            return Promise.reject(new axios.CanceledError('Session ended'))
+        }
+        if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)
             && !error.config?.url?.startsWith('/auth/login')
             && !error.config?.url?.startsWith('/auth/me')) {
             unauthorizedHandler?.()

@@ -19,17 +19,20 @@ public class PasswordResetRequestService {
     private final PasswordResetProperties properties;
     private final EmailOutboxService outbox;
     private final EmailIntentKeyFactory keys;
+    private final com.mohammadmurrar.leadflow.security.IdentityStateService identities;
 
     @Autowired
     public PasswordResetRequestService(UserRepository users, PasswordResetRequestRepository requests,
             PasswordResetTokenService tokens, PasswordResetProperties properties,
-            EmailOutboxService outbox, EmailIntentKeyFactory keys) {
+            EmailOutboxService outbox, EmailIntentKeyFactory keys,
+            com.mohammadmurrar.leadflow.security.IdentityStateService identities) {
         this.users = users;
         this.requests = requests;
         this.tokens = tokens;
         this.properties = properties;
         this.outbox = outbox;
         this.keys = keys;
+        this.identities = identities;
     }
 
     @Transactional
@@ -40,10 +43,19 @@ public class PasswordResetRequestService {
         if (candidate.isEmpty()) return Result.SUPPRESSED;
         User user = users.findByIdForUpdate(candidate.get().getId()).orElse(null);
         if (user == null || !user.isEnabled() || user.getRole() != UserRole.ADMIN
+                || !identities.lockActiveAdministrator(user)
                 || !email.equals(user.getNormalizedEmail())) return Result.SUPPRESSED;
 
         Instant now = Objects.requireNonNull(requestedAt).truncatedTo(ChronoUnit.MICROS);
         Optional<PasswordResetRequest> active = requests.findActiveByUserIdForUpdate(user.getId());
+        if (active.isPresent()) {
+            identities.refreshLocked(active.get());
+            if (active.get().getWorkspace() == null || active.get().getUser() == null
+                    || !user.getId().equals(active.get().getUser().getId())
+                    || !user.getWorkspace().getId().equals(active.get().getWorkspace().getId())) {
+                return Result.SUPPRESSED;
+            }
+        }
         if (active.isPresent() && now.isBefore(properties.cooldownEndsAt(active.get().getCreatedAt()))) {
             return Result.SUPPRESSED;
         }

@@ -4,6 +4,7 @@ export type UserRole = 'ADMIN'
 
 export interface AuthenticatedUser {
     id: string
+    workspaceId: string
     email: string
     displayName: string
     role: UserRole

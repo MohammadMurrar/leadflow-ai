@@ -19,6 +19,7 @@ public interface PasswordResetRequestRepository extends
             select request from PasswordResetRequest request join fetch request.workspace workspace
             join fetch request.user user where request.id = :id and workspace.id = :workspaceId
               and user.workspace.id = :workspaceId
+              and user.enabled = true and user.role = com.mohammadmurrar.leadflow.user.UserRole.ADMIN
               and workspace.status = com.mohammadmurrar.leadflow.workspace.WorkspaceStatus.ACTIVE
             """)
     Optional<PasswordResetRequest> findDeliverableByIdAndWorkspaceId(
@@ -29,6 +30,7 @@ public interface PasswordResetRequestRepository extends
             select request from PasswordResetRequest request join fetch request.workspace workspace
             join fetch request.user user where request.id = :id and workspace.id = :workspaceId
               and user.workspace.id = :workspaceId
+              and user.enabled = true and user.role = com.mohammadmurrar.leadflow.user.UserRole.ADMIN
               and workspace.status = com.mohammadmurrar.leadflow.workspace.WorkspaceStatus.ACTIVE
             """)
     Optional<PasswordResetRequest> findDeliverableByIdAndWorkspaceIdForUpdate(

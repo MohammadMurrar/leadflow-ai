@@ -166,14 +166,14 @@ class WorkspaceAdministrationIsolationApiTest {
 
         for (Workspace unavailable : List.of(pending, suspended)) {
             mockMvc.perform(get("/api/v1/services").with(user(principal(unavailable))))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/v1/settings/workspace").with(user(principal(unavailable))))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
         }
         mockMvc.perform(get("/api/v1/services").with(user(principal(UUID.randomUUID()))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/settings/workspace").with(user(principal(UUID.randomUUID()))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -216,9 +216,9 @@ class WorkspaceAdministrationIsolationApiTest {
 
         for (Workspace unavailable : List.of(pending, suspended)) {
             mockMvc.perform(get("/api/v1/leads").with(user(principal(unavailable))))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/v1/dashboard/stats").with(user(principal(unavailable))))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
         }
     }
 
@@ -230,8 +230,15 @@ class WorkspaceAdministrationIsolationApiTest {
         return lead;
     }
 
+    @Autowired com.mohammadmurrar.leadflow.user.UserRepository identityUsers;
+
     private AuthenticatedPrincipal principal(Workspace workspace) {
-        return principal(workspace.getId());
+        String email = "isolation-" + workspace.getId() + "@example.invalid";
+        var identity = identityUsers.findByNormalizedEmail(email).orElseGet(() -> identityUsers.saveAndFlush(
+                com.mohammadmurrar.leadflow.user.User.createAdministrator(workspace, email,
+                        "Isolation Administrator", java.util.UUID.randomUUID().toString())));
+        return new AuthenticatedPrincipal(identity.getId(), identity.getNormalizedEmail(),
+                identity.getDisplayName(), identity.getRole(), workspace.getId(), null, true);
     }
 
     private AuthenticatedPrincipal principal(UUID workspaceId) {

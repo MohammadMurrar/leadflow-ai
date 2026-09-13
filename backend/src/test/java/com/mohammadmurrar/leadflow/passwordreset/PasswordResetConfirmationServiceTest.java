@@ -209,7 +209,8 @@ class PasswordResetConfirmationServiceTest {
         when(encoder.encode(PASSWORD)).thenReturn(encoded);
         return new Fixture(tokens, requests, users, encoder, sessions, user, request, token,
                 encoded, new PasswordResetConfirmationService(tokens, requests, users, encoder,
-                        sessions, Clock.fixed(NOW, ZoneOffset.UTC)));
+                        sessions, new com.mohammadmurrar.leadflow.security.IdentityStateService(
+                                mock(jakarta.persistence.EntityManager.class)), Clock.fixed(NOW, ZoneOffset.UTC)));
     }
 
     private record Fixture(PasswordResetTokenService tokens,

@@ -67,6 +67,9 @@ class PasswordResetEmailFlowIntegrationTest {
     @Autowired com.mohammadmurrar.leadflow.lead.LeadRepository leads;
     @Autowired EntityManager entityManager;
     @MockitoBean EmailSender sender;
+    // This test drives the real dispatcher explicitly. A scheduled invocation can
+    // otherwise claim its fixtures before that invocation and race its assertions.
+    @MockitoBean EmailDeliveryScheduler scheduler;
     @Autowired com.mohammadmurrar.leadflow.workspace.WorkspaceRepository workspaces;
     @Autowired com.mohammadmurrar.leadflow.settings.WorkspaceSettingsRepository settings;
     private com.mohammadmurrar.leadflow.workspace.Workspace workspace;

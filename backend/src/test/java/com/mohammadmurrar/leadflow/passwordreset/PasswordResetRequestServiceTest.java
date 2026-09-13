@@ -136,7 +136,8 @@ class PasswordResetRequestServiceTest {
                 Duration.ofMinutes(30), Duration.ofMinutes(5), Duration.ofDays(30));
         PasswordResetTokenService tokens = new PasswordResetTokenService(properties);
         PasswordResetRequestService service = new PasswordResetRequestService(users, requests,
-                tokens, properties, outbox, new EmailIntentKeyFactory());
+                tokens, properties, outbox, new EmailIntentKeyFactory(),
+                new com.mohammadmurrar.leadflow.security.IdentityStateService(mock(jakarta.persistence.EntityManager.class)));
         return new Fixture(users, requests, outbox, service);
     }
 

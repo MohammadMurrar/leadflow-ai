@@ -26,23 +26,27 @@ public class PasswordResetConfirmationService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetSessionService sessions;
     private final Clock clock;
+    private final com.mohammadmurrar.leadflow.security.IdentityStateService identities;
 
     @Autowired
     public PasswordResetConfirmationService(PasswordResetTokenService tokens,
             PasswordResetRequestRepository requests, UserRepository users,
-            PasswordEncoder passwordEncoder, PasswordResetSessionService sessions) {
-        this(tokens, requests, users, passwordEncoder, sessions, Clock.systemUTC());
+            PasswordEncoder passwordEncoder, PasswordResetSessionService sessions,
+            com.mohammadmurrar.leadflow.security.IdentityStateService identities) {
+        this(tokens, requests, users, passwordEncoder, sessions, identities, Clock.systemUTC());
     }
 
     PasswordResetConfirmationService(PasswordResetTokenService tokens,
             PasswordResetRequestRepository requests, UserRepository users,
-            PasswordEncoder passwordEncoder, PasswordResetSessionService sessions, Clock clock) {
+            PasswordEncoder passwordEncoder, PasswordResetSessionService sessions,
+            com.mohammadmurrar.leadflow.security.IdentityStateService identities, Clock clock) {
         this.tokens = tokens;
         this.requests = requests;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.sessions = sessions;
         this.clock = clock;
+        this.identities = identities;
     }
 
     @Transactional
@@ -59,13 +63,16 @@ public class PasswordResetConfirmationService {
             tokenHash = tokens.storedHash(tokenBytes);
             PasswordResetRequest candidate = requests.findByTokenHash(tokenHash)
                     .orElseThrow(InvalidPasswordResetException::new);
+            if (candidate.getUser() == null) throw invalid();
             User user = users.findByIdForUpdate(candidate.getUser().getId())
                     .orElseThrow(InvalidPasswordResetException::new);
-            if (!user.isEnabled() || user.getRole() != UserRole.ADMIN) throw invalid();
+            if (!identities.lockActiveAdministrator(user)
+                    || !user.isEnabled() || user.getRole() != UserRole.ADMIN) throw invalid();
             PasswordResetRequest request = requests.findByIdForUpdate(candidate.getId())
                     .orElseThrow(InvalidPasswordResetException::new);
+            identities.refreshLocked(request);
             Instant now = Objects.requireNonNull(confirmedAt).truncatedTo(ChronoUnit.MICROS);
-            if (request.getWorkspace() == null || user.getWorkspace() == null
+            if (request.getWorkspace() == null || user.getWorkspace() == null || request.getUser() == null
                     || !request.getWorkspace().getId().equals(user.getWorkspace().getId())
                     || !request.getUser().getId().equals(user.getId())
                     || !tokens.matches(request.getTokenHash(), tokenBytes)
@@ -81,7 +88,7 @@ public class PasswordResetConfirmationService {
             requests.flush();
         } catch (PasswordResetTokenService.InvalidPasswordResetTokenException exception) {
             throw invalid();
-        } catch (ConcurrencyFailureException exception) {
+        } catch (ConcurrencyFailureException | jakarta.persistence.EntityNotFoundException exception) {
             throw invalid();
         } finally {
             if (tokenBytes != null) Arrays.fill(tokenBytes, (byte) 0);

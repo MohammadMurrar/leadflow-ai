@@ -17,12 +17,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @Configuration
 public class TestMockMvcSecurityConfiguration {
     @Bean
-    MockMvcBuilderCustomizer authenticatedMockMvcDefaults() {
+    MockMvcBuilderCustomizer authenticatedMockMvcDefaults(
+            com.mohammadmurrar.leadflow.user.UserRepository users,
+            com.mohammadmurrar.leadflow.workspace.WorkspaceRepository workspaces) {
         var principal = new AuthenticatedPrincipal(UUID.randomUUID(),
                 "test-admin@example.invalid", "Test Administrator", UserRole.ADMIN,
                 WorkspaceTestFixtures.activeWorkspaceA().getId(), "{test}password", true);
         return builder -> builder.defaultRequest(get("/")
-                .with(user(principal))
+                .with(request -> {
+                    if (org.mockito.Mockito.mockingDetails(users).isMock()) {
+                        return user(principal).postProcessRequest(request);
+                    }
+                    var workspace = workspaces.findById(WorkspaceTestFixtures.activeWorkspaceA().getId())
+                            .orElseGet(() -> workspaces.saveAndFlush(WorkspaceTestFixtures.activeWorkspaceA()));
+                    var identity = users.findByNormalizedEmail(principal.email()).orElseGet(() ->
+                            users.saveAndFlush(com.mohammadmurrar.leadflow.user.User.createAdministrator(
+                                    workspace, principal.email(), principal.displayName(), UUID.randomUUID().toString())));
+                    var persisted = new AuthenticatedPrincipal(identity.getId(), identity.getNormalizedEmail(),
+                            identity.getDisplayName(), identity.getRole(), workspace.getId(), null, identity.isEnabled());
+                    return user(persisted).postProcessRequest(request);
+                })
                 .with(csrf()));
     }
 }

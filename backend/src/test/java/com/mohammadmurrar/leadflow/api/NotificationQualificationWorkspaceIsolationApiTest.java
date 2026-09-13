@@ -156,17 +156,17 @@ class NotificationQualificationWorkspaceIsolationApiTest {
                     "unavailable@example.invalid", "Unavailable", UserRole.ADMIN,
                     unavailable.getId(), null, true);
             mockMvc.perform(get("/api/v1/notifications").with(user(principal)))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/v1/notifications/unread-count").with(user(principal)))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
             mockMvc.perform(get("/api/v1/leads/{id}/qualification-attempts", UUID.randomUUID())
                             .with(user(principal)))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
         }
         AuthenticatedPrincipal unknown = new AuthenticatedPrincipal(UUID.randomUUID(),
                 "unknown@example.invalid", "Unknown", UserRole.ADMIN, UUID.randomUUID(), null, true);
         mockMvc.perform(get("/api/v1/notifications").with(user(unknown)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

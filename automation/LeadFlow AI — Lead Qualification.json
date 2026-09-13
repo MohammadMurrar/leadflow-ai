@@ -94,7 +94,7 @@
       "position": [1420, -120],
       "onError": "continueErrorOutput",
       "parameters": {
-        "jsCode": "const correlation = $('Validate and Normalize Dispatch').first().json;\nconst raw = $json.content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();\nconst q = JSON.parse(raw);\nif (!Number.isInteger(q.qualificationScore) || q.qualificationScore < 0 || q.qualificationScore > 100) throw new Error('Invalid AI response');\nif (!['HIGH','MEDIUM','LOW'].includes(q.priority) || typeof q.category !== 'string' || typeof q.aiSummary !== 'string' || typeof q.recommendedReply !== 'string' || q.category.length > 120 || q.aiSummary.length > 1200 || q.recommendedReply.length > 1800) throw new Error('Invalid AI response');\nreturn [{ json: { ...correlation, ...q } }];"
+        "jsCode": "const raw = $json.content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();\nconst q = JSON.parse(raw);\nif (q === null || Array.isArray(q) || typeof q !== 'object') throw new Error('Invalid AI response');\nif (!Number.isInteger(q.qualificationScore) || q.qualificationScore < 0 || q.qualificationScore > 100) throw new Error('Invalid AI response');\nif (!['HIGH','MEDIUM','LOW'].includes(q.priority) || typeof q.category !== 'string' || typeof q.aiSummary !== 'string' || typeof q.recommendedReply !== 'string' || q.category.length > 120 || q.aiSummary.length > 1200 || q.recommendedReply.length > 1800) throw new Error('Invalid AI response');\nreturn [{ json: { qualificationScore: q.qualificationScore, priority: q.priority, category: q.category, aiSummary: q.aiSummary, recommendedReply: q.recommendedReply } }];"
       }
     },
     {
@@ -107,9 +107,9 @@
       "waitBetweenTries": 1000,
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
       "parameters": {
-        "method": "POST", "url": "=http://backend:8080/api/v1/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/success",
+        "method": "POST", "url": "=http://backend:8080/api/v1/automation/leads/{{ $('Validate and Normalize Dispatch').first().json.leadId }}/qualification-attempts/{{ $('Validate and Normalize Dispatch').first().json.attemptId }}/success",
         "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ { score: $json.qualificationScore, priority: $json.priority, category: $json.category, summary: $json.aiSummary, recommendedReply: $json.recommendedReply, workflowExecutionId: $json.workflowExecutionId } }}",
+        "jsonBody": "={{ { score: $json.qualificationScore, priority: $json.priority, category: $json.category, summary: $json.aiSummary, recommendedReply: $json.recommendedReply, workflowExecutionId: $('Validate and Normalize Dispatch').first().json.workflowExecutionId } }}",
         "options": {}
       }
     },
@@ -136,9 +136,9 @@
       "waitBetweenTries": 1000,
       "credentials": { "httpHeaderAuth": { "id": "REPLACE_DURING_IMPORT", "name": "LeadFlow Automation Key" } },
       "parameters": {
-        "method": "POST", "url": "=http://backend:8080/api/v1/automation/leads/{{ $json.leadId }}/qualification-attempts/{{ $json.attemptId }}/failure",
+        "method": "POST", "url": "=http://backend:8080/api/v1/automation/leads/{{ $('Validate and Normalize Dispatch').first().json.leadId }}/qualification-attempts/{{ $('Validate and Normalize Dispatch').first().json.attemptId }}/failure",
         "authentication": "predefinedCredentialType", "nodeCredentialType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ { failureCode: $json.failureCode, message: $json.message, workflowExecutionId: $json.workflowExecutionId } }}",
+        "jsonBody": "={{ { failureCode: $json.failureCode, message: $json.message, workflowExecutionId: $('Validate and Normalize Dispatch').first().json.workflowExecutionId } }}",
         "options": {}
       }
     }

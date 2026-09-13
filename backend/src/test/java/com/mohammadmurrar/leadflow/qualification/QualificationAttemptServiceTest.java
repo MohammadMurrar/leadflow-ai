@@ -27,6 +27,33 @@ class QualificationAttemptServiceTest {
     @Mock CurrentWorkspace currentWorkspace;
 
     @Test
+    void wrongOrMissingExecutionCannotMutateProcessingOrTerminalAttempts() {
+        Lead lead = lead();
+        QualificationAttempt attempt = QualificationAttempt.create(lead, 1);
+        stubLocked(lead, attempt);
+        QualificationAttemptService service = service(false);
+        service.start(lead.getId(), attempt.getId(), new QualificationStartRequest("execution-1"));
+        for (String execution : new String[] {"other-execution", null, "", " "}) {
+            assertThatThrownBy(() -> service.succeed(lead.getId(), attempt.getId(),
+                    new QualificationSuccessRequest(88, LeadPriority.HIGH, "AI_AUTOMATION",
+                            "Summary", "Reply", execution))).isInstanceOf(ConflictException.class);
+            assertThatThrownBy(() -> service.fail(lead.getId(), attempt.getId(),
+                    new QualificationFailureRequest(QualificationFailureCode.UNKNOWN,
+                            "Failure", execution))).isInstanceOf(ConflictException.class);
+            assertThat(attempt.getStatus()).isEqualTo(QualificationAttemptStatus.PROCESSING);
+            assertThat(lead.getStatus()).isEqualTo(LeadStatus.QUALIFYING);
+        }
+        verifyNoInteractions(notifications, emailIntents);
+        service.succeed(lead.getId(), attempt.getId(), success());
+        assertThatThrownBy(() -> service.succeed(lead.getId(), attempt.getId(),
+                new QualificationSuccessRequest(88, LeadPriority.HIGH, "AI_AUTOMATION",
+                        "Summary", "Reply", "other-execution"))).isInstanceOf(ConflictException.class);
+        assertThat(attempt.getStatus()).isEqualTo(QualificationAttemptStatus.SUCCEEDED);
+        verify(notifications, times(1)).createQualificationNotification(lead);
+        verify(emailIntents, times(1)).enqueueQualificationSuccess(lead, attempt);
+    }
+
+    @Test
     void initialAttemptStartsAtOneAndCreatesDurableOutbox() {
         Lead lead = lead();
         when(attempts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

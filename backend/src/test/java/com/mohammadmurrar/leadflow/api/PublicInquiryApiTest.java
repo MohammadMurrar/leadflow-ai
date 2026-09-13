@@ -64,6 +64,7 @@ class PublicInquiryApiTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
+    @Autowired com.mohammadmurrar.leadflow.user.UserRepository identityUsers;
     @Autowired LeadRepository leads;
     @Autowired NotificationRepository notifications;
     @Autowired QualificationAttemptRepository attempts;
@@ -431,9 +432,12 @@ class PublicInquiryApiTest {
         administrative.put("message", "A sufficiently detailed administrative lead request.");
         administrative.put("source", "test");
         administrative.put("existingCompatibilityField", "still ignored");
+        var identity = identityUsers.saveAndFlush(com.mohammadmurrar.leadflow.user.User.createAdministrator(
+                legacyWorkspace, UUID.randomUUID() + "@example.invalid", "Synthetic Administrator",
+                UUID.randomUUID().toString()));
         var principal = new com.mohammadmurrar.leadflow.security.AuthenticatedPrincipal(
-                UUID.randomUUID(), "test-admin@example.invalid", "Test Admin",
-                com.mohammadmurrar.leadflow.user.UserRole.ADMIN, legacyWorkspace.getId(), null, true);
+                identity.getId(), identity.getNormalizedEmail(), identity.getDisplayName(),
+                identity.getRole(), legacyWorkspace.getId(), null, true);
         var authenticated = org.springframework.security.authentication.UsernamePasswordAuthenticationToken
                 .authenticated(principal, null, principal.getAuthorities());
         mockMvc.perform(post("/api/v1/leads").with(authentication(authenticated))

@@ -95,7 +95,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http,
             @Qualifier("corsConfigurationSource") CorsConfigurationSource cors,
             CookieCsrfTokenRepository csrf, ObjectMapper objectMapper,
-            SessionRegistry sessionRegistry) throws Exception {
+            SessionRegistry sessionRegistry, IdentityStateService identities) throws Exception {
         var paths = PathPatternRequestMatcher.withDefaults();
         RequestMatcher legacy = paths.matcher(HttpMethod.POST,
                 "/api/v1/automation/leads/{leadId}/qualification");
@@ -105,8 +105,27 @@ public class SecurityConfig {
                 "/api/v1/automation/leads/{leadId}/qualification-attempts/{attemptId}/success");
         RequestMatcher failure = paths.matcher(HttpMethod.POST,
                 "/api/v1/automation/leads/{leadId}/qualification-attempts/{attemptId}/failure");
+        RequestMatcher[] publicRoutes = {
+                paths.matcher("/actuator/health/liveness"), paths.matcher("/actuator/health/readiness"),
+                paths.matcher("/api/v1/auth/csrf"), paths.matcher("/api/v1/auth/login"),
+                paths.matcher(HttpMethod.POST, "/api/v1/auth/password-reset/request"),
+                paths.matcher(HttpMethod.POST, "/api/v1/auth/password-reset/confirm"),
+                paths.matcher("/api/v1/automation/**"),
+                paths.matcher(HttpMethod.GET, "/api/v1/public/inquiry-config"),
+                paths.matcher(HttpMethod.POST, "/api/v1/public/leads"),
+                paths.matcher(HttpMethod.GET, "/api/v1/public/workspaces/{workspaceSlug}/inquiry-config"),
+                paths.matcher(HttpMethod.POST, "/api/v1/public/workspaces/{workspaceSlug}/leads")
+        };
+        var anonymousRoutes = new org.springframework.security.web.util.matcher.OrRequestMatcher(publicRoutes);
+        var apiRequests = paths.matcher("/api/**");
+        var logoutRequest = paths.matcher(HttpMethod.POST, "/api/v1/auth/logout");
+        RequestMatcher protectedRequests = request -> apiRequests.matches(request)
+                && !anonymousRoutes.matches(request)
+                && !logoutRequest.matches(request);
 
         http
+                .addFilterAfter(new ActiveIdentityFilter(identities, protectedRequests),
+                        org.springframework.security.web.context.SecurityContextHolderFilter.class)
                 .cors(configuration -> configuration.configurationSource(cors))
                 .csrf(configuration -> configuration
                         .csrfTokenRepository(csrf)
@@ -123,18 +142,7 @@ public class SecurityConfig {
                         .securityContextRepository(securityContextRepository()))
                 .authorizeHttpRequests(authorization -> authorization
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
-                        .requestMatchers("/actuator/health/liveness", "/actuator/health/readiness").permitAll()
-                        .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/auth/password-reset/request",
-                                "/api/v1/auth/password-reset/confirm").permitAll()
-                        .requestMatchers("/api/v1/automation/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/public/inquiry-config").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/public/leads").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/public/workspaces/{workspaceSlug}/inquiry-config").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/public/workspaces/{workspaceSlug}/leads").permitAll()
+                        .requestMatchers(publicRoutes).permitAll()
                         .requestMatchers("/api/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .exceptionHandling(configuration -> configuration
