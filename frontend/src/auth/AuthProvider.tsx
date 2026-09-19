@@ -1,6 +1,6 @@
 import { QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getCurrentUser, login, logout, obtainCsrfToken } from './authApi'
@@ -10,19 +10,29 @@ import { setUnauthorizedHandler } from '../services/leadApi'
 import LoginPage from '../components/LoginPage'
 import { createPrivateSession, removeUnscopedPrivateData } from './privateSession'
 import type { PrivateSession } from './privateSession'
+import { useThemeView } from '../theme/themeContext'
 
-export default function AuthProvider({ children }: { children: ReactNode }) {
+export default function AuthProvider({ children, publicHome }: { children: ReactNode; publicHome?: ReactNode }) {
     const [session, setSession] = useState<PrivateSession | null>(null)
     const current = useRef<PrivateSession | null>(null)
     const generation = useRef(0)
     const channel = useRef<BroadcastChannel | null>(null)
     const user = session?.user
+    const setThemeView = useThemeView()
     const [initializing, setInitializing] = useState(true)
     const [loginPending, setLoginPending] = useState(false)
     const [loginError, setLoginError] = useState<string | null>(null)
     const queryClient = useQueryClient()
     const location = useLocation()
     const navigate = useNavigate()
+
+    useLayoutEffect(() => {
+        const view = !initializing && user && location.pathname !== '/login'
+            ? 'authenticated-app' : location.pathname === '/' ? 'public' : 'authentication'
+        setThemeView(view)
+    }, [initializing, location.pathname, setThemeView, user])
+
+    useLayoutEffect(() => () => setThemeView('public'), [setThemeView])
 
     const clearIdentity = useCallback(() => {
         generation.current += 1
@@ -138,6 +148,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (!user) {
+        if (location.pathname === '/' && publicHome) return publicHome
         if (location.pathname !== '/login') {
             return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
         }

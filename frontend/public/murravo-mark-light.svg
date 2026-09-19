@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Murravo</title>
+  <path d="M6 30V10L20 24L34 10V30" stroke="#fff" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M27 30h7" stroke="#fff" stroke-width="5.5" stroke-linecap="square"/>
+</svg>

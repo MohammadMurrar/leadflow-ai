@@ -8,7 +8,6 @@ import {
   Plus,
   Search,
   Settings,
-  Sparkles,
   TrendingUp,
   Users,
   X,
@@ -38,6 +37,9 @@ import type { LeadFormErrors, LeadFormField } from './utils/leadForm'
 import type { InterfacePreferences, LeadPageSize } from './types/settings'
 import { readInterfacePreferences } from './utils/interfacePreferences'
 import { useAuth } from './auth/auth'
+import MurravoLogo from './components/MurravoLogo'
+import ProfileAvatar from './components/ProfileAvatar'
+import { getInitials } from './utils/getInitials'
 
 const navigation: Array<{
   name: string
@@ -57,16 +59,6 @@ const AiQualificationPage = lazy(() => import('./components/AiQualificationPage'
 const AnalyticsPage = lazy(() => import('./components/AnalyticsPage'))
 const ServicesPage = lazy(() => import('./components/ServicesPage'))
 const SettingsPage = lazy(() => import('./components/SettingsPage'))
-
-function getInitials(fullName: string) {
-  return fullName
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((name) => name.charAt(0))
-      .join('')
-      .toUpperCase()
-}
 
 function App() {
   const { user, signOut } = useAuth()
@@ -435,14 +427,13 @@ function App() {
         >
           <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200">
-                <Sparkles className="h-5 w-5 text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-500 shadow-lg shadow-primary-200">
+                <MurravoLogo compact decorative className="text-white" />
               </div>
 
               <div>
                 <p className="text-lg font-bold tracking-tight text-slate-950">
-                  LeadFlow
-                  <span className="text-indigo-600"> AI</span>
+                  Murravo
                 </p>
                 <p className="max-w-36 truncate text-xs text-slate-400" title={workspaceName}>{workspaceName}</p>
               </div>
@@ -468,10 +459,10 @@ function App() {
                 const active = item.path === location.pathname
                 const content = (
                     <>
-                      <item.icon className="h-[19px] w-[19px]" />
+                      <item.icon className="h-5 w-5" />
                       <span>{item.name}</span>
                       {item.name === 'Leads' && (
-                          <span className="ml-auto rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">{totalLeadCount}</span>
+                          <span className="ml-auto rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700">{totalLeadCount}</span>
                       )}
                       {item.disabled && (
                           <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-slate-400">Coming soon</span>
@@ -484,7 +475,7 @@ function App() {
                         key={item.name}
                         to={item.path}
                         onClick={() => setSidebarOpen(false)}
-                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${active ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
                     >
                       {content}
                     </Link>
@@ -511,34 +502,32 @@ function App() {
               <Link
                   to="/services"
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${isServicesPage ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${isServicesPage ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
               >
-                <BriefcaseBusiness className="h-[19px] w-[19px]" />
+                <BriefcaseBusiness className="h-5 w-5" />
                 Services
               </Link>
 
               <Link
                   to="/settings"
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${isSettingsPage ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${isSettingsPage ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
               >
-                <Settings className="h-[19px] w-[19px]" />
+                <Settings className="h-5 w-5" />
                 Settings
               </Link>
             </nav>
 
-            <div className="mt-8 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-lg shadow-indigo-100">
-              <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-white/15">
-                <Bot className="h-5 w-5" />
-              </div>
+            <div className="app-sidebar-promo mt-8 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-700 p-5 text-white shadow-lg shadow-primary-100">
+              <Bot className="mb-4 h-5 w-5" aria-hidden="true" />
 
               <p className="font-semibold">Automation configuration</p>
-              <p className="mt-1 text-xs leading-5 text-indigo-100">
+              <p className="mt-1 text-xs leading-5 text-primary-100">
                 Qualification reliability is managed by backend configuration.
               </p>
 
               <div className="mt-4 flex items-center gap-2 text-xs font-medium">
-                <span className="h-2 w-2 rounded-full bg-indigo-200" />
+                <span className="h-2 w-2 rounded-full bg-primary-200" />
                 View configuration in Settings
               </div>
             </div>
@@ -546,9 +535,7 @@ function App() {
 
           <div className="border-t border-slate-100 p-4">
             <div className="flex w-full items-center gap-3 rounded-xl p-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">
-                {getInitials(user.displayName)}
-              </div>
+              <ProfileAvatar name={user.displayName} />
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-800">
@@ -586,7 +573,7 @@ function App() {
                   value={leadSearchInput}
                   onChange={(event) => setLeadSearchInput(event.target.value)}
                   placeholder="Search leads, companies, or services..."
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100"
               />
               {leadSearchInput && (
                   <button
@@ -605,8 +592,9 @@ function App() {
 
               <button
                   type="button"
+                  aria-label="Add Lead"
                   onClick={openAddLeadModal}
-                  className="flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700"
+                  className="flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm shadow-primary-200 transition hover:bg-primary-700"
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add Lead</span>
@@ -758,7 +746,7 @@ function App() {
                           value={form.fullName}
                           onChange={(event) => updateFormField('fullName', event.target.value)}
                           placeholder="e.g. Sarah Johnson"
-                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.fullName ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.fullName ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                       />
                       {fieldErrors.fullName && <span id="fullName-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.fullName}</span>}
                     </label>
@@ -774,7 +762,7 @@ function App() {
                           value={form.email}
                           onChange={(event) => updateFormField('email', event.target.value)}
                           placeholder="sarah@company.com"
-                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.email ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.email ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                       />
                       {fieldErrors.email && <span id="email-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.email}</span>}
                     </label>
@@ -790,7 +778,7 @@ function App() {
                           value={form.phone}
                           onChange={(event) => updateFormField('phone', event.target.value)}
                           placeholder="+1 202 555 0147"
-                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.phone ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.phone ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                       />
                       {fieldErrors.phone && <span id="phone-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.phone}</span>}
                     </label>
@@ -805,7 +793,7 @@ function App() {
                           value={form.company}
                           onChange={(event) => updateFormField('company', event.target.value)}
                           placeholder="BrightPath Logistics"
-                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.company ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.company ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                       />
                       {fieldErrors.company && <span id="company-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.company}</span>}
                     </label>
@@ -813,17 +801,17 @@ function App() {
                     <fieldset className="sm:col-span-2">
                       <legend className="text-sm font-medium text-slate-700">Requested service <span className="text-rose-500">*</span></legend>
                       <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
-                        <label className="flex items-center gap-2"><input type="radio" name="serviceMode" value="catalog" checked={form.serviceMode === 'catalog'} onChange={() => setForm((current) => ({ ...current, serviceMode: 'catalog' }))} className="h-4 w-4 accent-indigo-600" />Catalog service</label>
-                        <label className="flex items-center gap-2"><input type="radio" name="serviceMode" value="custom" checked={form.serviceMode === 'custom'} onChange={() => { setForm((current) => ({ ...current, serviceMode: 'custom', serviceId: '' })); setFieldErrors((current) => { const next = { ...current }; delete next.serviceId; return next }) }} className="h-4 w-4 accent-indigo-600" />Custom / not listed</label>
+                        <label className="flex items-center gap-2"><input type="radio" name="serviceMode" value="catalog" checked={form.serviceMode === 'catalog'} onChange={() => setForm((current) => ({ ...current, serviceMode: 'catalog' }))} className="h-4 w-4 accent-primary" />Catalog service</label>
+                        <label className="flex items-center gap-2"><input type="radio" name="serviceMode" value="custom" checked={form.serviceMode === 'custom'} onChange={() => { setForm((current) => ({ ...current, serviceMode: 'custom', serviceId: '' })); setFieldErrors((current) => { const next = { ...current }; delete next.serviceId; return next }) }} className="h-4 w-4 accent-primary" />Custom / not listed</label>
                       </div>
                       {form.serviceMode === 'catalog' ? <div className="mt-3">
                         {activeServicesQuery.isLoading ? <p role="status" className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Loading active services...</p> : activeServicesQuery.isError ? <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700"><span>Active services could not be loaded.</span><button type="button" onClick={() => activeServicesQuery.refetch()} className="font-semibold underline">Retry</button></div> : <>
-                          <select name="serviceId" value={form.serviceId} onChange={(event) => updateFormField('serviceId', event.target.value)} aria-invalid={Boolean(fieldErrors.serviceId)} aria-describedby={fieldErrors.serviceId ? 'serviceId-error' : activeServicesQuery.data && !activeServicesQuery.data.last ? 'service-options-bounded' : undefined} className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm outline-none focus:ring-4 ${fieldErrors.serviceId ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-indigo-100'}`}><option value="">Choose an active service</option>{activeServicesQuery.data?.content.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select>
+                          <select name="serviceId" aria-label="Requested service" value={form.serviceId} onChange={(event) => updateFormField('serviceId', event.target.value)} aria-invalid={Boolean(fieldErrors.serviceId)} aria-describedby={fieldErrors.serviceId ? 'serviceId-error' : activeServicesQuery.data && !activeServicesQuery.data.last ? 'service-options-bounded' : undefined} className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm outline-none focus:ring-4 ${fieldErrors.serviceId ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-primary-100'}`}><option value="">Choose an active service</option>{activeServicesQuery.data?.content.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select>
                           {activeServicesQuery.data?.content.length === 0 && <p className="mt-2 text-sm text-slate-500">No active catalog services are available. You can still choose Custom / not listed.</p>}
                           {activeServicesQuery.data && !activeServicesQuery.data.last && <p id="service-options-bounded" className="mt-2 text-xs text-amber-700">Showing the first 200 active services. Use Custom / not listed if the required service is not shown.</p>}
                         </>}
                         {fieldErrors.serviceId && <span id="serviceId-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.serviceId}</span>}
-                      </div> : <label className="mt-3 block"><span className="sr-only">Custom requested service</span><input name="requestedService" maxLength={120} aria-invalid={Boolean(fieldErrors.requestedService)} aria-describedby={fieldErrors.requestedService ? 'requestedService-error' : undefined} value={form.requestedService} onChange={(event) => updateFormField('requestedService', event.target.value)} placeholder="Describe the requested service" className={`h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.requestedService ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-indigo-100'}`} />{fieldErrors.requestedService && <span id="requestedService-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.requestedService}</span>}</label>}
+                      </div> : <label className="mt-3 block"><span className="sr-only">Custom requested service</span><input name="requestedService" maxLength={120} aria-invalid={Boolean(fieldErrors.requestedService)} aria-describedby={fieldErrors.requestedService ? 'requestedService-error' : undefined} value={form.requestedService} onChange={(event) => updateFormField('requestedService', event.target.value)} placeholder="Describe the requested service" className={`h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.requestedService ? 'border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:ring-primary-100'}`} />{fieldErrors.requestedService && <span id="requestedService-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.requestedService}</span>}</label>}
                     </fieldset>
 
                     <label className="text-sm font-medium text-slate-700">
@@ -840,7 +828,7 @@ function App() {
                             value={form.estimatedBudget}
                             onChange={(event) => updateFormField('estimatedBudget', event.target.value)}
                             placeholder="4500"
-                            className={`h-11 w-full rounded-xl border pl-14 pr-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.estimatedBudget ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                            className={`h-11 w-full rounded-xl border pl-14 pr-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.estimatedBudget ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                         />
                       </div>
                       {fieldErrors.estimatedBudget && <span id="estimatedBudget-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.estimatedBudget}</span>}
@@ -856,7 +844,7 @@ function App() {
                           aria-describedby={fieldErrors.desiredStartDate ? 'desiredStartDate-error' : undefined}
                           value={form.desiredStartDate}
                           onChange={(event) => updateFormField('desiredStartDate', event.target.value)}
-                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm text-slate-600 outline-none transition focus:ring-4 ${fieldErrors.desiredStartDate ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          className={`mt-2 h-11 w-full rounded-xl border px-3.5 text-sm text-slate-600 outline-none transition focus:ring-4 ${fieldErrors.desiredStartDate ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                       />
                       {fieldErrors.desiredStartDate && <span id="desiredStartDate-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.desiredStartDate}</span>}
                     </label>
@@ -872,7 +860,7 @@ function App() {
                           value={form.message}
                           onChange={(event) => updateFormField('message', event.target.value)}
                           placeholder="Describe what the lead needs, their goals, and any relevant details..."
-                          className={`mt-2 w-full resize-none rounded-xl border px-3.5 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.message ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          className={`mt-2 w-full resize-none rounded-xl border px-3.5 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${fieldErrors.message ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100'}`}
                       />
                       {fieldErrors.message && <span id="message-error" className="mt-1.5 block text-xs font-medium text-rose-600">{fieldErrors.message}</span>}
                     </label>
@@ -896,7 +884,7 @@ function App() {
                     <button
                         type="submit"
                         disabled={createLeadMutation.isPending}
-                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm shadow-primary-200 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {createLeadMutation.isPending ? (
                           <>

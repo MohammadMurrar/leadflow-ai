@@ -2,7 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { useLayoutEffect } from 'react'
+import type { ReactNode } from 'react'
 import SettingsPage from './SettingsPage'
+import { ThemeProvider } from '../theme/ThemeProvider'
+import { useThemeView } from '../theme/themeContext'
 
 const updateWorkspaceSettings = vi.fn()
 
@@ -25,12 +30,22 @@ const preferences = {
     defaultQualificationState: '' as const,
 }
 
+function AuthenticatedThemeView({ children }: { children: ReactNode }) {
+    const setView = useThemeView()
+    useLayoutEffect(() => { setView('authenticated-app') }, [setView])
+    return children
+}
+
+function renderSettings() {
+    render(<MemoryRouter initialEntries={['/settings']}><ThemeProvider><AuthenticatedThemeView><QueryClientProvider client={new QueryClient()}><SettingsPage
+        preferences={preferences} onPreferencesSaved={vi.fn()} /></QueryClientProvider></AuthenticatedThemeView></ThemeProvider></MemoryRouter>)
+}
+
 describe('workspace currency settings', () => {
     beforeEach(() => updateWorkspaceSettings.mockReset())
 
     it('offers exactly the approved currencies and explains display-only behavior', async () => {
-        render(<QueryClientProvider client={new QueryClient()}><SettingsPage
-            preferences={preferences} onPreferencesSaved={vi.fn()} /></QueryClientProvider>)
+        renderSettings()
 
         const selector = await screen.findByRole('combobox', { name: /currency/i })
         expect(selector).toHaveValue('USD')
@@ -40,5 +55,14 @@ describe('workspace currency settings', () => {
             .toBeInTheDocument()
         await userEvent.selectOptions(selector, 'ILS')
         expect(selector).toHaveValue('ILS')
+    })
+
+    it('offers keyboard-accessible system, light, and dark appearance choices', async () => {
+        renderSettings()
+        expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument()
+        expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
+        await userEvent.click(screen.getByRole('radio', { name: 'Dark' }))
+        expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked()
+        expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
     })
 })

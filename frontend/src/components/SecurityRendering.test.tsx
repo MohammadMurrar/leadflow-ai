@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Lead } from '../types/lead'
 import LeadsPage from './LeadsPage'
@@ -54,7 +54,8 @@ describe('untrusted lead rendering', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getAllByText(hostileText)).toHaveLength(3)
+    expect(within(container.querySelector('[aria-label="Lead records"]') as HTMLElement).getAllByText(hostileText)).toHaveLength(3)
+    expect(within(container.querySelector('table') as HTMLElement).getAllByText(hostileText)).toHaveLength(3)
     expect(container.querySelector('script')).not.toBeInTheDocument()
     expect(container.querySelector('img')).not.toBeInTheDocument()
   })

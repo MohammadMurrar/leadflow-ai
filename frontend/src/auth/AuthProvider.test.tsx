@@ -2,10 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AuthProvider from './AuthProvider'
-import { getCurrentUser, login, obtainCsrfToken } from './authApi'
+import { getCurrentUser, login, logout, obtainCsrfToken } from './authApi'
 import { getPublicInquiryConfiguration } from '../services/publicInquiryApi'
+import { ThemeProvider } from '../theme/ThemeProvider'
+import { useAuth } from './auth'
 
 vi.mock('./authApi', () => ({
   getCurrentUser: vi.fn(),
@@ -19,6 +21,7 @@ vi.mock('../services/publicInquiryApi', () => ({
 
 const currentUserMock = vi.mocked(getCurrentUser)
 const loginMock = vi.mocked(login)
+const logoutMock = vi.mocked(logout)
 const csrfMock = vi.mocked(obtainCsrfToken)
 const brandingMock = vi.mocked(getPublicInquiryConfiguration)
 const unauthorized = (status: number) => ({ isAxiosError: true, response: { status } })
@@ -26,6 +29,18 @@ const unauthorized = (status: number) => ({ isAxiosError: true, response: { stat
 function Destination() {
   const location = useLocation()
   return <div>Authenticated destination: {location.pathname}</div>
+}
+
+function SignOutDestination() {
+  const { signOut } = useAuth()
+  return <><Destination /><button onClick={() => void signOut()}>Sign out in test</button></>
+}
+
+function renderThemedProvider(path = '/', destination = <Destination />) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[path]}><ThemeProvider>
+    <AuthProvider publicHome={<main>Public Murravo home</main>}>{destination}</AuthProvider>
+  </ThemeProvider></MemoryRouter></QueryClientProvider>)
 }
 
 function renderProvider(initialEntry: string | { pathname: string; state: unknown } = '/login') {
@@ -40,7 +55,90 @@ beforeEach(() => {
   brandingMock.mockRejectedValue(new Error('branding unavailable'))
 })
 
+afterEach(() => {
+  localStorage.removeItem('murravo.theme')
+  vi.unstubAllGlobals()
+})
+
 describe('real authentication provider regression', () => {
+  it('shows anonymous root in light before and after restoration without changing a dark preference', async () => {
+    localStorage.setItem('murravo.theme', 'dark')
+    renderThemedProvider()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(await screen.findByText('Public Murravo home')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(localStorage.getItem('murravo.theme')).toBe('dark')
+  })
+
+  it.each(['dark', 'light'])('uses the administrator %s preference for authenticated root after restoration', async (preference) => {
+    localStorage.setItem('murravo.theme', preference)
+    currentUserMock.mockResolvedValue({ id: 'user-id', workspaceId: 'workspace-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
+    renderThemedProvider()
+    expect(await screen.findByText('Authenticated destination: /')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe(preference)
+    expect(document.documentElement.style.colorScheme).toBe(preference)
+    expect(screen.queryByText('Public Murravo home')).not.toBeInTheDocument()
+    expect(localStorage.getItem('murravo.theme')).toBe(preference)
+  })
+
+  it.each([true, false])('resolves authenticated root against System dark=%s', async (dark) => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: dark, addEventListener: vi.fn(), removeEventListener: vi.fn() })))
+    currentUserMock.mockResolvedValue({ id: 'user-id', workspaceId: 'workspace-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
+    renderThemedProvider()
+    expect(await screen.findByText('Authenticated destination: /')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe(dark ? 'dark' : 'light')
+    expect(localStorage.getItem('murravo.theme')).toBeNull()
+  })
+
+  it('applies saved Dark on successful login without darkening the public login view', async () => {
+    localStorage.setItem('murravo.theme', 'dark')
+    loginMock.mockResolvedValue({ id: 'user-id', workspaceId: 'workspace-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
+    const user = userEvent.setup()
+    renderThemedProvider('/login')
+    await screen.findByLabelText('Email address')
+    expect(document.documentElement.dataset.theme).toBe('light')
+    await user.type(screen.getByLabelText('Email address'), 'admin@example.invalid')
+    await user.type(screen.getByLabelText('Password'), 'Synthetic-password-42!')
+    await user.click(screen.getByRole('button', { name: 'Sign in securely' }))
+    expect(await screen.findByText('Authenticated destination: /')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('murravo.theme')).toBe('dark')
+  })
+
+  it('returns to light login on logout without erasing saved Dark', async () => {
+    localStorage.setItem('murravo.theme', 'dark')
+    currentUserMock.mockResolvedValue({ id: 'user-id', workspaceId: 'workspace-id', email: 'admin@example.invalid', displayName: 'Admin', role: 'ADMIN' })
+    logoutMock.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderThemedProvider('/settings', <SignOutDestination />)
+    expect(await screen.findByText('Authenticated destination: /settings')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    await user.click(screen.getByRole('button', { name: 'Sign out in test' }))
+    expect(await screen.findByLabelText('Email address')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(localStorage.getItem('murravo.theme')).toBe('dark')
+  })
+
+  it('returns a failed protected session restoration to light login', async () => {
+    localStorage.setItem('murravo.theme', 'dark')
+    renderThemedProvider('/settings')
+    expect(await screen.findByLabelText('Email address')).toBeVisible()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(screen.queryByText('Authenticated destination: /settings')).not.toBeInTheDocument()
+    expect(localStorage.getItem('murravo.theme')).toBe('dark')
+  })
+
+  it('shows the public home after an anonymous session check without exposing private content', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/']}>
+      <AuthProvider publicHome={<main>Public Murravo home</main>}><Destination /></AuthProvider>
+    </MemoryRouter></QueryClientProvider>)
+    expect(await screen.findByText('Public Murravo home')).toBeVisible()
+    expect(screen.queryByText('Authenticated destination: /')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Email address')).not.toBeInTheDocument()
+  })
+
   it('keeps bootstrap and branding failures out of login-submission feedback', async () => {
     csrfMock.mockRejectedValueOnce(new Error('bootstrap unavailable'))
     loginMock.mockRejectedValue(unauthorized(401))

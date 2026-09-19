@@ -43,14 +43,14 @@ function BoundaryFrame({ mode, error = false }: { mode: 'full' | 'content'; erro
             <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200"
+                className="mt-5 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200"
             >
                 Refresh application
             </button>
         </div>
     ) : (
         <div role="status" className="flex items-center gap-3 text-sm font-medium text-slate-500">
-            <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" aria-hidden="true" />
+            <span className="h-2.5 w-2.5 rounded-full bg-primary-500" aria-hidden="true" />
             {mode === 'full' ? 'Loading your workspace…' : 'Loading workspace view…'}
         </div>
     )

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -8,7 +10,7 @@ import { captureResetToken, clearResetToken } from './auth/resetTokenVault'
 import RootRoute from './RootRoute'
 
 vi.mock('./auth/AuthProvider', () => ({
-  default: ({ children }: { children: ReactNode }) => <div data-testid="protected-provider">{children}</div>,
+  default: ({ children, publicHome }: { children: ReactNode; publicHome?: ReactNode }) => <div data-testid="protected-provider">{publicHome ?? children}</div>,
 }))
 vi.mock('./App', () => ({ default: () => <div>Dashboard application</div> }))
 vi.mock('./components/InquiryPage', () => ({
@@ -70,8 +72,63 @@ describe('production root routing composition', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/login'))
   })
 
-  it.each(['/login', '/', '/unknown'])('keeps %s behind the existing authentication provider', async (path) => {
+  it.each(['/login', '/', '/leads', '/settings'])('keeps %s behind the existing authentication provider', async (path) => {
     renderRoot(path)
     expect(await screen.findByTestId('protected-provider')).toBeInTheDocument()
+  })
+
+  it('shows a public homepage at root with sign-in, contact, and privacy actions', async () => {
+    renderRoot('/')
+    expect(await screen.findByRole('heading', { name: 'Murravo', level: 1 })).toBeVisible()
+    expect(screen.getAllByRole('link', { name: /sign in/i }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: /email mohammad/i })).toHaveAttribute('href', 'mailto:mmurrar.business@gmail.com?subject=Murravo%20pilot%20inquiry')
+    expect(screen.getAllByRole('link', { name: 'Privacy' }).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Dashboard application')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /sign up|trial/i })).not.toBeInTheDocument()
+    expect(screen.getByText('From inquiry to the next decision.')).toBeVisible()
+    expect(screen.getByText('Illustrative workspace data')).toBeVisible()
+    expect(screen.getByText('Inquiries and qualification')).toBeVisible()
+    expect(screen.getByText('Lead performance')).toBeVisible()
+    expect(document.querySelector('.hero-story')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('[data-reveal]')).toHaveLength(0)
+  })
+
+  it('keeps the homepage meaningful without animation or JavaScript reveal enhancement', async () => {
+    renderRoot('/')
+    expect(await screen.findByText('A clear path through every inquiry.')).toBeVisible()
+    expect(document.querySelector('.public-home')).not.toHaveClass('is-enhanced')
+
+    const css = readFileSync(resolve('src/components/homePage.css'), 'utf8')
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*animation: none !important;[^}]*transition: none !important;/)
+    expect(css).toMatch(/\.home-overview-lead, \.home-chart-series, \.home-workflow-events li \{ opacity: 1 !important; transform: none !important; \}/)
+  })
+
+  it('lands on the contact section for a direct homepage hash link', async () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      renderRoot('/#contact')
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce())
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it('renders privacy and unknown paths publicly with correct titles', async () => {
+    const privacy = renderRoot('/privacy')
+    expect(await screen.findByRole('heading', { name: 'Privacy at Murravo' })).toBeVisible()
+    expect(screen.getByText('Mohammad Murrar')).toBeVisible()
+    expect(screen.getAllByText('mmurrar.business@gmail.com').length).toBeGreaterThan(0)
+    for (const name of ['Information submitted through inquiry forms', 'Administrator accounts and sessions', 'Leads and qualification', 'Retention', 'Security', 'Service providers and location', 'Your choices and requests', 'Children', 'Changes']) {
+      expect(screen.getByRole('heading', { name, level: 2 })).toBeVisible()
+    }
+    expect(screen.queryByText(/SOC 2|ISO 27001|GDPR compliant/i)).not.toBeInTheDocument()
+    expect(document.title).toBe('Privacy | Murravo')
+    privacy.unmount()
+    renderRoot('/admin/unknown')
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeVisible()
+    expect(document.title).toBe('Page not found | Murravo')
+    expect(screen.queryByTestId('protected-provider')).not.toBeInTheDocument()
   })
 })

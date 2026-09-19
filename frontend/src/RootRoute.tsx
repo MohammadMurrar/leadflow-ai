@@ -4,6 +4,7 @@ import AuthProvider from './auth/AuthProvider'
 import { clearResetToken } from './auth/resetTokenVault'
 import RouteLoadBoundary from './components/RouteLoadBoundary'
 import { getInquiryWorkspaceSlug } from './publicInquiryRoute'
+import { HomePage, NotFoundPage, PrivacyPage } from './components/PublicPages'
 
 export const AuthenticatedApp = lazy(() => import('./App'))
 const InquiryPage = lazy(() => import('./components/InquiryPage'))
@@ -14,6 +15,23 @@ export default function RootRoute() {
 
   useEffect(() => {
     if (location.pathname !== '/reset-password') clearResetToken()
+  }, [location.pathname])
+
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      '/': 'Murravo',
+      '/privacy': 'Privacy | Murravo',
+      '/login': 'Sign in | Murravo',
+      '/forgot-password': 'Reset request | Murravo',
+      '/reset-password': 'Reset password | Murravo',
+      '/leads': 'Leads | Murravo',
+      '/ai-qualification': 'AI Qualification | Murravo',
+      '/analytics': 'Analytics | Murravo',
+      '/services': 'Services | Murravo',
+      '/settings': 'Settings | Murravo',
+    }
+    document.title = location.pathname.startsWith('/inquiry') ? 'Inquiry | Murravo'
+      : titles[location.pathname] ?? 'Page not found | Murravo'
   }, [location.pathname])
 
   const inquiryWorkspaceSlug = getInquiryWorkspaceSlug(location.pathname)
@@ -31,5 +49,10 @@ export default function RootRoute() {
     return <RouteLoadBoundary mode="full" resetKey={location.pathname}><ResetPasswordPage key={location.key} /></RouteLoadBoundary>
   }
 
-  return <AuthProvider><RouteLoadBoundary mode="full" resetKey={location.pathname}><AuthenticatedApp /></RouteLoadBoundary></AuthProvider>
+  if (location.pathname === '/privacy') return <PrivacyPage />
+  if (!['/', '/login', '/leads', '/ai-qualification', '/analytics', '/services', '/settings'].includes(location.pathname)) return <NotFoundPage />
+
+  return <AuthProvider publicHome={location.pathname === '/' ? <HomePage /> : undefined}>
+    <RouteLoadBoundary mode="full" resetKey={location.pathname}><AuthenticatedApp /></RouteLoadBoundary>
+  </AuthProvider>
 }

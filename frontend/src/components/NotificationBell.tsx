@@ -25,10 +25,10 @@ import type {
 import type { PageResponse } from '../types/page'
 
 const severityStyles: Record<NotificationSeverity, string> = {
-    INFO: 'bg-blue-50 text-blue-600 ring-blue-100',
-    SUCCESS: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-    WARNING: 'bg-amber-50 text-amber-600 ring-amber-100',
-    ERROR: 'bg-rose-50 text-rose-600 ring-rose-100',
+    INFO: 'text-primary',
+    SUCCESS: 'text-emerald-600',
+    WARNING: 'text-amber-700',
+    ERROR: 'text-rose-600',
 }
 
 const severityIcons = {
@@ -182,11 +182,11 @@ export default function NotificationBell() {
                     setOpen((current) => !current)
                     setActionError(null)
                 }}
-                className="relative rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-100"
+                className="relative rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-100"
             >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
-                    <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-indigo-600 px-1 text-[10px] font-bold leading-none text-white">
+                    <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-primary px-1 text-[10px] font-bold leading-none text-white">
                         {badgeText}
                     </span>
                 )}
@@ -213,7 +213,7 @@ export default function NotificationBell() {
                                     setActionError(null)
                                     markAllMutation.mutate()
                                 }}
-                                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {markAllMutation.isPending
                                     ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -231,7 +231,7 @@ export default function NotificationBell() {
 
                     {notificationsQuery.isLoading && (
                         <div className="flex min-h-56 flex-col items-center justify-center px-6 text-center">
-                            <LoaderCircle className="mb-3 h-6 w-6 animate-spin text-indigo-600" />
+                            <LoaderCircle className="mb-3 h-6 w-6 animate-spin text-primary" />
                             <p className="text-sm font-medium text-slate-600">Loading notifications...</p>
                         </div>
                     )}
@@ -282,22 +282,22 @@ export default function NotificationBell() {
                                             type="button"
                                             disabled={isPending}
                                             onClick={() => handleNotificationClick(notification)}
-                                            className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition last:border-b-0 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 disabled:cursor-wait ${
-                                                notification.read ? 'bg-white hover:bg-slate-50' : 'bg-indigo-50/45 hover:bg-indigo-50/80'
+                                            className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition last:border-b-0 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 disabled:cursor-wait ${
+                                                notification.read ? 'bg-white hover:bg-slate-50' : 'bg-primary-50/45 hover:bg-primary-50/80'
                                             }`}
                                         >
-                                            <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${severityStyles[notification.severity]}`}>
+                                            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center ${severityStyles[notification.severity]}`} aria-hidden="true">
                                                 {isPending
-                                                    ? <LoaderCircle className="h-4 w-4 animate-spin" />
-                                                    : <SeverityIcon className="h-4 w-4" />}
-                                            </div>
+                                                    ? <LoaderCircle className="h-5 w-5 animate-spin" />
+                                                    : <SeverityIcon className="h-5 w-5" />}
+                                            </span>
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-start gap-2">
                                                     <p className={`flex-1 text-sm ${notification.read ? 'font-medium text-slate-700' : 'font-bold text-slate-900'}`}>
                                                         {notification.title}
                                                     </p>
                                                     {!notification.read && (
-                                                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-600" aria-label="Unread" />
+                                                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
                                                     )}
                                                 </div>
                                                 <p className={`mt-1 text-xs leading-5 ${notification.read ? 'text-slate-400' : 'text-slate-600'}`}>

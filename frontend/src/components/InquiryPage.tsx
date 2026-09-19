@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Send, ShieldCheck, Sparkles } from 'lucide-react'
+import { CheckCircle2, Send, ShieldCheck, Workflow } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import type { FieldError } from 'react-hook-form'
@@ -35,7 +35,7 @@ const defaultValues: PublicInquiryFormValues = {
     website: '',
 }
 
-const inputClass = 'mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+const inputClass = 'mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
 const invalidInputClass = 'border-rose-400 focus:border-rose-500 focus:ring-rose-100'
 
 function ErrorText({ id, error }: { id: string; error?: FieldError }) {
@@ -117,13 +117,13 @@ export default function InquiryPage({ workspaceSlug }: { workspaceSlug?: string 
 
     return (
         <main className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900">
-            <div className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-gradient-to-br from-indigo-100/80 via-violet-50 to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-gradient-to-br from-primary-100/80 via-primary-50 to-transparent" aria-hidden="true" />
             <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
                 <header className="mx-auto max-w-3xl text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200" aria-hidden="true">
-                        <Sparkles className="h-6 w-6" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary-200" aria-hidden="true">
+                        <Workflow className="h-6 w-6" />
                     </div>
-                    <p className="mt-5 text-sm font-bold uppercase tracking-[0.18em] text-indigo-700">Start a conversation</p>
+                    <p className="mt-5 text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Start a conversation</p>
                     <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
                         Tell us what you’re building
                     </h1>
@@ -133,21 +133,21 @@ export default function InquiryPage({ workspaceSlug }: { workspaceSlug?: string 
                 </header>
 
                 <section className="mx-auto mt-8 grid max-w-5xl gap-6 lg:mt-12 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.5fr)] lg:items-start">
-                    <aside className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-700 to-violet-700 p-6 text-white shadow-xl shadow-indigo-100 sm:p-8">
+                    <aside className="inquiry-brand-panel rounded-3xl border border-primary-100 bg-gradient-to-br from-primary-700 to-primary-700 p-6 text-white shadow-xl shadow-primary-100 sm:p-8">
                         {configuration.isPending && workspaceSlug !== null ? (
-                            <div role="status" className="flex items-center gap-3 text-sm font-medium text-indigo-100">
+                            <div role="status" className="flex items-center gap-3 text-sm font-medium text-primary-100">
                                 <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" aria-hidden="true" />
                                 Loading inquiry details…
                             </div>
                         ) : workspaceSlug === null || configuration.isError || !configuration.data ? (
                             <div role="alert">
                                 <h2 className="text-xl font-bold">Inquiry details are unavailable</h2>
-                                <p className="mt-2 text-sm leading-6 text-indigo-100">We couldn’t load the available services. Please try again.</p>
+                                <p className="mt-2 text-sm leading-6 text-primary-100">We couldn’t load the available services. Please try again.</p>
                                 {workspaceSlug !== null && (
                                     <button
                                         type="button"
                                         onClick={() => void configuration.refetch()}
-                                        className="mt-5 min-h-11 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50 focus:outline-none focus:ring-4 focus:ring-white/40"
+                                        className="mt-5 min-h-11 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-4 focus:ring-white/40"
                                     >
                                         Retry
                                     </button>
@@ -157,14 +157,14 @@ export default function InquiryPage({ workspaceSlug }: { workspaceSlug?: string 
                             <>
                                 <h2 className="text-2xl font-bold">{configuration.data.workspaceName}</h2>
                                 {configuration.data.description && (
-                                    <p className="mt-3 whitespace-pre-line text-sm leading-6 text-indigo-100">{configuration.data.description}</p>
+                                    <p className="mt-3 whitespace-pre-line text-sm leading-6 text-primary-100">{configuration.data.description}</p>
                                 )}
                                 <div className="mt-7 border-t border-white/20 pt-6">
                                     <div className="flex items-center gap-2 text-sm font-bold">
                                         <ShieldCheck className="h-5 w-5" aria-hidden="true" />
                                         Your details are submitted securely
                                     </div>
-                                    <p className="mt-2 text-sm leading-6 text-indigo-100">Only include information relevant to your inquiry.</p>
+                                    <p className="mt-2 text-sm leading-6 text-primary-100">Only include information relevant to your inquiry.</p>
                                 </div>
                             </>
                         )}
@@ -274,7 +274,7 @@ export default function InquiryPage({ workspaceSlug }: { workspaceSlug?: string 
                                                 <label htmlFor="message" className="text-sm font-bold text-slate-700">Inquiry message <span className="text-rose-600" aria-hidden="true">*</span></label>
                                                 <span className="text-xs tabular-nums text-slate-500">{messageLength}/3000</span>
                                             </div>
-                                            <textarea id="message" rows={6} required maxLength={3000} aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? 'message-error' : 'message-help'} className={`mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 ${errors.message ? invalidInputClass : ''}`} placeholder="Tell us about your goals, requirements, and timeline." {...register('message')} />
+                                            <textarea id="message" rows={6} required maxLength={3000} aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? 'message-error' : 'message-help'} className={`mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 ${errors.message ? invalidInputClass : ''}`} placeholder="Tell us about your goals, requirements, and timeline." {...register('message')} />
                                             <p id="message-help" className="mt-1.5 text-xs text-slate-500">Include enough detail for us to understand what you need.</p>
                                             <ErrorText id="message-error" error={errors.message} />
                                         </div>
@@ -289,7 +289,7 @@ export default function InquiryPage({ workspaceSlug }: { workspaceSlug?: string 
                                     <button
                                         type="submit"
                                         disabled={!canSubmit || submission.isPending}
-                                        className="mt-7 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-base font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto sm:min-w-48"
+                                        className="mt-7 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-bold text-white shadow-lg shadow-primary-200 transition hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-200 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto sm:min-w-48"
                                     >
                                         {submission.isPending ? 'Sending…' : <><Send className="h-5 w-5" aria-hidden="true" /> Send inquiry</>}
                                     </button>

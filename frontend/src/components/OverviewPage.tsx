@@ -1,4 +1,4 @@
-import { ChevronDown, CircleDollarSign, Clock3, MoreHorizontal, Search, Sparkles, Target, Users, X } from 'lucide-react'
+import { ChevronDown, CircleDollarSign, Clock3, Gauge, MoreHorizontal, Search, Target, Users, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
     Area,
@@ -10,6 +10,8 @@ import {
     YAxis,
 } from 'recharts'
 import LeadRowActions from './LeadRowActions'
+import LeadMobileRecord from './LeadMobileRecord'
+import MetricIcon from './MetricIcon'
 import type { DashboardRange, DashboardStats } from '../types/dashboard'
 import type { Lead } from '../types/lead'
 import type { PageResponse } from '../types/page'
@@ -95,7 +97,6 @@ export default function OverviewPage({
             value: dashboardStats?.totalLeads.toLocaleString() ?? '—',
             description: 'All recorded leads',
             icon: Users,
-            iconStyle: 'bg-blue-50 text-blue-600',
         },
         {
             label: 'Qualified Leads',
@@ -104,21 +105,18 @@ export default function OverviewPage({
                 ? `${dashboardStats.qualificationRate.toFixed(1)}% qualification rate`
                 : 'Qualification rate unavailable',
             icon: Target,
-            iconStyle: 'bg-emerald-50 text-emerald-600',
         },
         {
             label: 'Pipeline Value',
             value: dashboardStats ? formatMoney(dashboardStats.pipelineValue, currency) : '—',
             description: 'Total estimated opportunity value',
             icon: CircleDollarSign,
-            iconStyle: 'bg-violet-50 text-violet-600',
         },
         {
             label: 'Average AI Score',
             value: dashboardStats?.averageAiScore.toFixed(1) ?? '—',
             description: 'Across leads with an AI score',
-            icon: Sparkles,
-            iconStyle: 'bg-amber-50 text-amber-600',
+            icon: Gauge,
         },
     ]
 
@@ -145,7 +143,7 @@ export default function OverviewPage({
           <main className="px-4 py-7 sm:px-6 lg:px-8">
             <section className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-1 text-sm font-medium text-indigo-600">
+                <p className="mb-1 text-sm font-medium text-primary">
                   {currentDate}
                 </p>
 
@@ -160,7 +158,7 @@ export default function OverviewPage({
 
               <div className="flex items-center gap-3 self-start sm:self-auto">
                 {isDashboardFetching && !isDashboardLoading && (
-                    <span className="text-xs font-medium text-indigo-600" role="status">
+                    <span className="text-xs font-medium text-primary" role="status">
                       Updating {dashboardRangeLabels[selectedRange].toLowerCase()}...
                     </span>
                 )}
@@ -169,7 +167,7 @@ export default function OverviewPage({
                   <select
                       value={selectedRange}
                       onChange={(event) => setSelectedRange(event.target.value as DashboardRange)}
-                      className="h-10 appearance-none rounded-xl border border-slate-200 bg-white py-0 pl-4 pr-10 text-sm font-medium text-slate-600 shadow-sm outline-none transition hover:bg-slate-50 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100"
+                      className="h-10 appearance-none rounded-xl border border-slate-200 bg-white py-0 pl-4 pr-10 text-sm font-medium text-slate-600 shadow-sm outline-none transition hover:bg-slate-50 focus:border-primary-300 focus:ring-4 focus:ring-primary-100"
                   >
                     <option value="7">Last 7 days</option>
                     <option value="30">Last 30 days</option>
@@ -204,11 +202,7 @@ export default function OverviewPage({
                       className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <div className="mb-5 flex items-start justify-between">
-                      <div
-                          className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconStyle}`}
-                      >
-                        <stat.icon className="h-5 w-5" />
-                      </div>
+                      <MetricIcon icon={stat.icon} />
 
                       <span className="rounded-full bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
                         {isDashboardLoading
@@ -265,8 +259,8 @@ export default function OverviewPage({
                         <AreaChart data={dashboardStats?.performance ?? []} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                           <defs>
                             <linearGradient id="totalLeadsGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.24} />
-                              <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                              <stop offset="5%" stopColor="#185FA5" stopOpacity={0.24} />
+                              <stop offset="95%" stopColor="#185FA5" stopOpacity={0} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -290,7 +284,7 @@ export default function OverviewPage({
                               type="monotone"
                               dataKey="totalLeads"
                               name="New leads"
-                              stroke="#6366f1"
+                              stroke="#185FA5"
                               strokeWidth={2}
                               fill="url(#totalLeadsGradient)"
                           />
@@ -319,8 +313,8 @@ export default function OverviewPage({
                     </p>
                   </div>
 
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <Sparkles className="h-5 w-5" />
+                  <div className="metric-icon">
+                    <Gauge className="h-5 w-5" />
                   </div>
                 </div>
 
@@ -333,7 +327,7 @@ export default function OverviewPage({
                       className="relative flex h-40 w-40 items-center justify-center rounded-full"
                       style={{
                         background: dashboardStats?.totalLeads
-                            ? `conic-gradient(#4f46e5 0deg ${successfullyQualifiedDegrees}deg, #3b82f6 ${successfullyQualifiedDegrees}deg ${successfullyQualifiedDegrees + processingDegrees}deg, #f43f5e ${successfullyQualifiedDegrees + processingDegrees}deg 360deg)`
+                            ? `conic-gradient(#185FA5 0deg ${successfullyQualifiedDegrees}deg, #3b82f6 ${successfullyQualifiedDegrees}deg ${successfullyQualifiedDegrees + processingDegrees}deg, #f43f5e ${successfullyQualifiedDegrees + processingDegrees}deg 360deg)`
                             : '#e2e8f0',
                       }}
                   >
@@ -351,7 +345,7 @@ export default function OverviewPage({
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-slate-500">
-                    <span className="h-2.5 w-2.5 rounded-full bg-indigo-600" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                     Successfully qualified
                   </span>
 
@@ -390,7 +384,7 @@ export default function OverviewPage({
                 <div>
                   <h2 className="font-bold text-slate-950">Recent leads</h2>
                   <p className="mt-1 text-sm text-slate-400">
-                    Latest opportunities analyzed by LeadFlow AI
+                    Latest opportunities analyzed by Murravo
                   </p>
                 </div>
 
@@ -404,7 +398,7 @@ export default function OverviewPage({
                         value={leadSearchInput}
                         onChange={(event) => setLeadSearchInput(event.target.value)}
                         placeholder="Search leads..."
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100"
                     />
                     {leadSearchInput && (
                         <button
@@ -418,13 +412,13 @@ export default function OverviewPage({
                     )}
                   </label>
 
-                  <span className="h-4 text-xs font-medium text-indigo-600" role="status" aria-live="polite">
+                  <span className="h-4 text-xs font-medium text-primary" role="status" aria-live="polite">
                     {isLeadsFetching && !isLoading && isLeadsPlaceholderData ? 'Searching leads...' : ''}
                   </span>
 
                   <Link
                       to="/leads"
-                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                      className="text-sm font-semibold text-primary hover:text-primary-700"
                   >
                     View all leads
                   </Link>
@@ -433,7 +427,7 @@ export default function OverviewPage({
 
               {isLoading && (
                   <div className="px-6 py-12 text-center">
-                    <Clock3 className="mx-auto mb-3 h-6 w-6 animate-spin text-indigo-600" />
+                    <Clock3 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
                     <p className="text-sm text-slate-500">
                       Loading leads from the backend...
                     </p>
@@ -468,7 +462,7 @@ export default function OverviewPage({
                         <button
                             type="button"
                             onClick={() => setLeadSearchInput('')}
-                            className="mt-4 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                            className="mt-4 text-sm font-semibold text-primary hover:text-primary-700"
                         >
                           Clear search
                         </button>
@@ -477,7 +471,11 @@ export default function OverviewPage({
               )}
 
               {!isLoading && leads.length > 0 && (
-                  <div className="overflow-x-auto">
+                  <>
+                  <div className="divide-y divide-slate-100 md:hidden" aria-label="Recent lead records">
+                    {leads.map((lead) => <LeadMobileRecord key={lead.id} lead={lead} currency={currency} context="overview" />)}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
                     <table className="w-full min-w-[950px] text-left">
                       <thead>
                       <tr className="border-b border-slate-100 bg-slate-50/60 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -487,7 +485,7 @@ export default function OverviewPage({
                         <th className="px-6 py-4">Priority</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4">Value</th>
-                        <th className="px-6 py-4">
+                        <th className="relative px-6 py-4">
                           <span className="sr-only">Actions</span>
                         </th>
                       </tr>
@@ -501,7 +499,7 @@ export default function OverviewPage({
                           >
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-xs font-bold text-indigo-700">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-xs font-bold text-primary-700">
                                   {getInitials(lead.fullName)}
                                 </div>
 
@@ -535,7 +533,7 @@ export default function OverviewPage({
                                                 100,
                                             )}%`,
                                           }}
-                                          className="h-full rounded-full bg-indigo-600"
+                                          className="h-full rounded-full bg-primary"
                                       />
                                     </div>
 
@@ -578,7 +576,7 @@ export default function OverviewPage({
                                       : lead.status === 'AUTOMATION_FAILED'
                                           ? 'bg-rose-50 text-rose-700'
                                           : lead.status === 'WON'
-                                              ? 'bg-violet-50 text-violet-700'
+                                              ? 'bg-primary-50 text-primary-700'
                                               : lead.status === 'LOST'
                                                   ? 'bg-slate-100 text-slate-600'
                                                   : 'bg-blue-50 text-blue-700'
@@ -592,7 +590,7 @@ export default function OverviewPage({
                                         'AUTOMATION_FAILED'
                                             ? 'bg-rose-500'
                                             : lead.status === 'WON'
-                                                ? 'bg-violet-500'
+                                                ? 'bg-primary-500'
                                                 : lead.status === 'LOST'
                                                     ? 'bg-slate-400'
                                                     : 'animate-pulse bg-blue-500'
@@ -617,11 +615,12 @@ export default function OverviewPage({
                       </tbody>
                     </table>
                   </div>
+                  </>
               )}
             </section>
 
             <footer className="py-8 text-center text-xs text-slate-400">
-              LeadFlow AI · Intelligent lead qualification
+              Murravo · AI-assisted lead qualification
             </footer>
           </main>
 

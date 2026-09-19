@@ -13,6 +13,7 @@ let closeActiveMenu: (() => void) | null = null
 interface LeadRowActionsProps {
     lead: Lead
     currency: SupportedCurrency
+    buttonClassName?: string
 }
 
 interface MenuPosition {
@@ -48,7 +49,7 @@ function Detail({ label, value, multiline = false }: { label: string; value: str
     )
 }
 
-export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) {
+export default function LeadRowActions({ lead, currency, buttonClassName = '' }: LeadRowActionsProps) {
     const buttonRef = useRef<HTMLButtonElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
     const modalRef = useRef<HTMLDivElement>(null)
@@ -365,16 +366,16 @@ export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) 
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 onClick={toggleMenu}
-                className="rounded-lg p-2 text-slate-400 outline-none transition hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                className={`rounded-lg p-2 text-slate-400 outline-none transition hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${buttonClassName}`}
             >
                 <MoreHorizontal className="h-5 w-5" />
             </button>
 
             {menuOpen && createPortal(
                 <div ref={menuRef} role="menu" aria-label={`Actions for ${lead.fullName}`} style={position} className="fixed z-[70] w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                    <button type="button" role="menuitem" onClick={openDetails} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none hover:bg-slate-50 focus:bg-indigo-50 focus:text-indigo-700"><Eye className="h-4 w-4" />View details</button>
-                    <button type="button" role="menuitem" disabled={!lead.email.trim()} aria-disabled={!lead.email.trim()} onClick={() => void copy(lead.email, 'Email')} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none hover:bg-slate-50 focus:bg-indigo-50 focus:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"><Copy className="h-4 w-4" />Copy email</button>
-                    <button type="button" role="menuitem" disabled={!lead.phone?.trim()} aria-disabled={!lead.phone?.trim()} onClick={() => void copy(lead.phone, 'Phone')} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none hover:bg-slate-50 focus:bg-indigo-50 focus:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"><Phone className="h-4 w-4" />Copy phone</button>
+                    <button type="button" role="menuitem" onClick={openDetails} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none hover:bg-slate-50 focus:bg-primary-50 focus:text-primary-700"><Eye className="h-4 w-4" />View details</button>
+                    <button type="button" role="menuitem" disabled={!lead.email.trim()} aria-disabled={!lead.email.trim()} onClick={() => void copy(lead.email, 'Email')} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none hover:bg-slate-50 focus:bg-primary-50 focus:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"><Copy className="h-4 w-4" />Copy email</button>
+                    <button type="button" role="menuitem" disabled={!lead.phone?.trim()} aria-disabled={!lead.phone?.trim()} onClick={() => void copy(lead.phone, 'Phone')} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none hover:bg-slate-50 focus:bg-primary-50 focus:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"><Phone className="h-4 w-4" />Copy phone</button>
                 </div>, document.body)}
 
             {detailsOpen && createPortal(
@@ -382,10 +383,10 @@ export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) 
                     <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby={`lead-details-${lead.id}`} tabIndex={-1} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none">
                         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4 sm:px-6">
                             <div><h2 id={`lead-details-${lead.id}`} className="text-lg font-bold text-slate-950">Lead details</h2><p className="mt-1 text-sm text-slate-500">Current information for {lead.fullName}</p></div>
-                            <button type="button" onClick={closeDetails} aria-label="Close lead details" className="rounded-lg p-2 text-slate-400 outline-none hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500"><X className="h-5 w-5" /></button>
+                            <button type="button" onClick={closeDetails} aria-label="Close lead details" className="rounded-lg p-2 text-slate-400 outline-none hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-primary-500"><X className="h-5 w-5" /></button>
                         </div>
                         <div className="p-5 sm:p-6">
-                            {detailsQuery.isLoading && <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-slate-500" role="status"><LoaderCircle className="h-5 w-5 animate-spin text-indigo-600" />Loading current lead details...</div>}
+                            {detailsQuery.isLoading && <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-slate-500" role="status"><LoaderCircle className="h-5 w-5 animate-spin text-primary" />Loading current lead details...</div>}
                             {detailsQuery.isError && !details && <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-700"><p>Could not load lead details. Please try again.</p><button type="button" onClick={() => void detailsQuery.refetch()} className="mt-3 font-semibold underline underline-offset-2">Retry</button></div>}
                             {details && <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
                                 <Detail label="Full name" value={display(details.fullName)} /><Detail label="Email" value={display(details.email)} />
@@ -408,12 +409,12 @@ export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) 
                                     {details.status === 'AUTOMATION_FAILED' && <p className="mt-2 text-sm text-slate-500">Manual lifecycle actions are unavailable because qualification did not complete.</p>}
                                 </div>
                                 {details.status === 'AUTOMATION_FAILED' && <div className="mt-4">
-                                    <button ref={(element) => { if (element) confirmationTriggerRef.current = element }} type="button" disabled={retryMutation.isPending} onClick={() => { setRetryError(null); setRetryConfirmationOpen(true) }} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white outline-none hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">Retry qualification</button>
+                                    <button ref={(element) => { if (element) confirmationTriggerRef.current = element }} type="button" disabled={retryMutation.isPending} onClick={() => { setRetryError(null); setRetryConfirmationOpen(true) }} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white outline-none hover:bg-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">Retry qualification</button>
                                     {retryError && <div role="alert" className="mt-3 rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700"><p>{retryError}</p><button type="button" onClick={() => setRetryConfirmationOpen(true)} className="mt-2 font-semibold underline underline-offset-2">Try again</button></div>}
                                 </div>}
                                 {transitionError && <div role="alert" className="mt-3 rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700"><p>{transitionError}</p>{lastTarget && <button type="button" disabled={statusMutation.isPending} onClick={() => transition(lastTarget)} className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-50">Retry</button>}</div>}
                                 {statusActions.length > 0 && <div className="mt-4 flex flex-wrap gap-2" aria-label="Available next actions">
-                                    {statusActions.map((status) => <button key={status} type="button" disabled={statusMutation.isPending} onClick={(event) => { if (status === 'WON' || status === 'LOST') confirmationTriggerRef.current = event.currentTarget; transition(status) }} className={`rounded-xl px-4 py-2 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${status === 'CONTACTED' ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-indigo-500' : status === 'WON' ? 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500' : 'border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 focus-visible:ring-rose-500'}`}>{statusMutation.isPending && lastTarget === status ? 'Updating...' : status === 'CONTACTED' ? 'Mark as contacted' : status === 'WON' ? 'Mark as won' : 'Mark as lost'}</button>)}
+                                    {statusActions.map((status) => <button key={status} type="button" disabled={statusMutation.isPending} onClick={(event) => { if (status === 'WON' || status === 'LOST') confirmationTriggerRef.current = event.currentTarget; transition(status) }} className={`rounded-xl px-4 py-2 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${status === 'CONTACTED' ? 'bg-primary text-white hover:bg-primary-700 focus-visible:ring-primary-500' : status === 'WON' ? 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500' : 'border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 focus-visible:ring-rose-500'}`}>{statusMutation.isPending && lastTarget === status ? 'Updating...' : status === 'CONTACTED' ? 'Mark as contacted' : status === 'WON' ? 'Mark as won' : 'Mark as lost'}</button>)}
                                 </div>}
                             </section>}
                             {details && <section className="mt-7 border-t border-slate-100 pt-6" aria-labelledby={`attempt-history-${lead.id}`}>
@@ -439,7 +440,7 @@ export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) 
                         <h2 id={`confirm-status-${lead.id}`} className="text-lg font-bold text-slate-950">Mark {details?.fullName ?? lead.fullName} as {targetStatus === 'WON' ? 'won' : 'lost'}?</h2>
                         <p id={`confirm-status-description-${lead.id}`} className="mt-2 text-sm leading-6 text-slate-500">This moves the lead to the terminal {targetStatus === 'WON' ? 'Won' : 'Lost'} state. It cannot be reopened in this workflow.</p>
                         <div className="mt-6 flex justify-end gap-3">
-                            <button type="button" disabled={statusMutation.isPending} onClick={() => { setTargetStatus(null); window.requestAnimationFrame(() => confirmationTriggerRef.current?.focus()) }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">Cancel</button>
+                            <button type="button" disabled={statusMutation.isPending} onClick={() => { setTargetStatus(null); window.requestAnimationFrame(() => confirmationTriggerRef.current?.focus()) }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50">Cancel</button>
                             <button type="button" disabled={statusMutation.isPending} onClick={() => { if (!statusMutation.isPending) statusMutation.mutate(targetStatus) }} className={`rounded-xl px-4 py-2 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${targetStatus === 'WON' ? 'bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500' : 'bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500'}`}>{statusMutation.isPending ? 'Updating...' : `Confirm ${targetStatus === 'WON' ? 'won' : 'lost'}`}</button>
                         </div>
                     </div>
@@ -451,8 +452,8 @@ export default function LeadRowActions({ lead, currency }: LeadRowActionsProps) 
                         <h2 id={`confirm-retry-${lead.id}`} className="text-lg font-bold text-slate-950">Retry AI qualification for {details?.fullName ?? lead.fullName}?</h2>
                         <p id={`confirm-retry-description-${lead.id}`} className="mt-2 text-sm leading-6 text-slate-500">A new AI qualification attempt will begin. Any previous attempt history remains unchanged.</p>
                         <div className="mt-6 flex justify-end gap-3">
-                            <button type="button" disabled={retryMutation.isPending} onClick={() => { setRetryConfirmationOpen(false); window.requestAnimationFrame(() => confirmationTriggerRef.current?.focus()) }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">Cancel</button>
-                            <button type="button" disabled={retryMutation.isPending} onClick={() => { if (!retryMutation.isPending) retryMutation.mutate() }} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white outline-none hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{retryMutation.isPending ? 'Starting retry...' : 'Start qualification retry'}</button>
+                            <button type="button" disabled={retryMutation.isPending} onClick={() => { setRetryConfirmationOpen(false); window.requestAnimationFrame(() => confirmationTriggerRef.current?.focus()) }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50">Cancel</button>
+                            <button type="button" disabled={retryMutation.isPending} onClick={() => { if (!retryMutation.isPending) retryMutation.mutate() }} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white outline-none hover:bg-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{retryMutation.isPending ? 'Starting retry...' : 'Start qualification retry'}</button>
                         </div>
                     </div>
                 </div>, document.body)}
