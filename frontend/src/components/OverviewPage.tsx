@@ -259,8 +259,8 @@ export default function OverviewPage({
                         <AreaChart data={dashboardStats?.performance ?? []} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                           <defs>
                             <linearGradient id="totalLeadsGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#185FA5" stopOpacity={0.24} />
-                              <stop offset="95%" stopColor="#185FA5" stopOpacity={0} />
+                              <stop offset="5%" stopColor="#142A43" stopOpacity={0.24} />
+                              <stop offset="95%" stopColor="#142A43" stopOpacity={0} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -284,7 +284,7 @@ export default function OverviewPage({
                               type="monotone"
                               dataKey="totalLeads"
                               name="New leads"
-                              stroke="#185FA5"
+                              stroke="#142A43"
                               strokeWidth={2}
                               fill="url(#totalLeadsGradient)"
                           />
@@ -327,7 +327,7 @@ export default function OverviewPage({
                       className="relative flex h-40 w-40 items-center justify-center rounded-full"
                       style={{
                         background: dashboardStats?.totalLeads
-                            ? `conic-gradient(#185FA5 0deg ${successfullyQualifiedDegrees}deg, #3b82f6 ${successfullyQualifiedDegrees}deg ${successfullyQualifiedDegrees + processingDegrees}deg, #f43f5e ${successfullyQualifiedDegrees + processingDegrees}deg 360deg)`
+                            ? `conic-gradient(#142A43 0deg ${successfullyQualifiedDegrees}deg, #6FA4C9 ${successfullyQualifiedDegrees}deg ${successfullyQualifiedDegrees + processingDegrees}deg, #F4775B ${successfullyQualifiedDegrees + processingDegrees}deg 360deg)`
                             : '#e2e8f0',
                       }}
                   >

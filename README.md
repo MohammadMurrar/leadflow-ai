@@ -1,6 +1,6 @@
-# LeadFlow AI
+# Murravo
 
-LeadFlow AI is a full-stack lead operations platform for service businesses. It combines a secured Spring Boot API, React operations workspace, MySQL persistence, and an attempt-aware n8n/Gemini qualification workflow.
+Murravo is a full-stack lead operations platform for service businesses. It combines a secured Spring Boot API, React operations workspace, MySQL persistence, and an attempt-aware n8n/Gemini qualification workflow.
 
 ## Current capabilities
 

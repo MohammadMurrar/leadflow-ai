@@ -79,9 +79,9 @@ describe('production root routing composition', () => {
 
   it('shows a public homepage at root with sign-in, contact, and privacy actions', async () => {
     renderRoot('/')
-    expect(await screen.findByRole('heading', { name: 'Murravo', level: 1 })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: /respond faster.*convert more/i, level: 1 })).toBeVisible()
     expect(screen.getAllByRole('link', { name: /sign in/i }).length).toBeGreaterThan(0)
-    expect(screen.getByRole('link', { name: /email mohammad/i })).toHaveAttribute('href', 'mailto:mmurrar.business@gmail.com?subject=Murravo%20pilot%20inquiry')
+    expect(screen.getByRole('link', { name: /talk to murravo/i })).toHaveAttribute('href', 'mailto:accounts@murravo.com?subject=Murravo%20pilot%20inquiry')
     expect(screen.getAllByRole('link', { name: 'Privacy' }).length).toBeGreaterThan(0)
     expect(screen.queryByText('Dashboard application')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /sign up|trial/i })).not.toBeInTheDocument()
@@ -119,7 +119,7 @@ describe('production root routing composition', () => {
     const privacy = renderRoot('/privacy')
     expect(await screen.findByRole('heading', { name: 'Privacy at Murravo' })).toBeVisible()
     expect(screen.getByText('Mohammad Murrar')).toBeVisible()
-    expect(screen.getAllByText('mmurrar.business@gmail.com').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('accounts@murravo.com').length).toBeGreaterThan(0)
     for (const name of ['Information submitted through inquiry forms', 'Administrator accounts and sessions', 'Leads and qualification', 'Retention', 'Security', 'Service providers and location', 'Your choices and requests', 'Children', 'Changes']) {
       expect(screen.getByRole('heading', { name, level: 2 })).toBeVisible()
     }

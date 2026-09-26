@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="6" fill="#185FA5"/>
-  <path d="M5.5 24V8L16 18.5L26.5 8V24" stroke="#fff" stroke-width="4.2" stroke-linecap="square" stroke-linejoin="miter"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Murravo</title>
+  <rect width="512" height="512" rx="112" fill="#142A43"/>
+  <path fill="#F7F2EA" d="M71 128c0-38 46-58 73-30l116 116c17 17 17 44 0 61l-32 32v-55c0-12-5-23-13-31l-69-69c-28-28-75-8-75 31v-55Z"/>
+  <path fill="#6FA4C9" d="M71 294c0-35 42-53 67-28l70 70c15 15 15 39 0 54l-69 69c-25 25-68 7-68-29V294Z"/>
+  <path fill="#F4775B" d="m290 215 67-67c26-26 70-8 70 29v250c0 36-43 54-68 29l-71-71c-15-15-15-37-2-52l31-37c12-14 12-35 0-49l-31-36 4 4Z"/>
 </svg>
