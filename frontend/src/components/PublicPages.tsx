@@ -7,7 +7,7 @@ import MurravoLogo from './MurravoLogo'
 import './publicPages.css'
 import './homePage.css'
 
-const contact = 'mmurrar.business@gmail.com'
+const contact = 'accounts@murravo.com'
 
 function PublicHeader({ home = false }: { home?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -50,14 +50,14 @@ export function HomePage() {
   return <div className="public-page public-home"><PublicHeader home /><main>
     <section className="public-hero">
       <div className="public-container">
-        <div className="public-hero-copy"><h1>Murravo</h1><p className="public-hero-statement">From inquiry to the next decision.</p><p>Receive inquiries, organize leads, qualify opportunities with AI assistance, and follow progress in one business workspace.</p><div className="public-actions"><a className="public-button" href="#contact">Contact for a pilot</a><Link className="public-secondary" to="/login">Sign in</Link></div></div>
+        <div className="public-hero-copy"><p className="public-kicker">AI-POWERED LEAD MANAGEMENT</p><h1>Respond faster.<br /><span>Convert more.</span></h1><p className="public-hero-statement">From inquiry to the next decision.</p><p>Receive inquiries, organize leads, qualify opportunities with AI assistance, and follow progress in one business workspace.</p><div className="public-actions"><a className="public-button" href="#contact">Start a pilot</a><Link className="public-secondary" to="/login">Sign in</Link></div></div>
         <HomeOverviewPreview />
       </div>
     </section>
     <section id="product" className="public-section public-container public-outcome"><div className="public-section-intro"><p className="public-kicker">THE WORKSPACE</p><h2>Everything connected to the lead.</h2><p>Give each workspace its own public inquiry page, then manage the resulting leads with service context, currency, notifications, dashboards, and analytics in one place.</p></div><div className="public-capabilities"><article><span>01 / CAPTURE</span><h3>Capture and organize</h3><p>Customers can submit a workspace-specific inquiry. Administrators can search, sort, and review leads without losing their context.</p></article><article><span>02 / ASSIST</span><h3>Qualify with assistance</h3><p>AI-assisted qualification surfaces scores, priority, and a suggested reply. Your team decides what to do next.</p></article><article><span>03 / FOLLOW UP</span><h3>Stay operational</h3><p>Notifications, service configuration, workspace currency, and performance views support day-to-day follow-up.</p></article></div></section>
     <HomeWorkflow />
     <section id="security" className="public-section public-container public-security"><div className="public-section-intro"><p className="public-kicker">ACCESS & CONTROL</p><h2>Built for a protected workspace.</h2><p>Tenant isolation and server-side access controls separate business workspaces. Administrator sessions, CSRF protection, rate-limited public inquiry submission, and a secure password-reset flow are part of the current application.</p></div><div className="public-security-points"><p><ShieldCheck size={20} aria-hidden="true" /> Workspace-scoped access</p><p><LockKeyhole size={20} aria-hidden="true" /> Protected administrator sessions</p><p><Bell size={20} aria-hidden="true" /> Operational notifications</p><p><ChartNoAxesCombined size={20} aria-hidden="true" /> Reviewable lead progress</p></div></section>
-    <section id="contact" className="public-contact"><div className="public-container public-contact-inner"><div><p className="public-kicker">CONTACT</p><h2>Explore a controlled pilot.</h2><p>Tell Mohammad a little about your business and how you currently handle inquiries. We can discuss whether Murravo is a fit.</p></div><a className="public-button" href={`mailto:${contact}?subject=Murravo%20pilot%20inquiry`}>Email Mohammad <Mail size={18} aria-hidden="true" /></a></div></section>
+    <section id="contact" className="public-contact"><div className="public-container public-contact-inner"><div><p className="public-kicker">START A PILOT</p><h2>Turn more inquiries into opportunities.</h2><p>Tell us a little about your business and how you currently handle incoming leads. We’ll explore whether Murravo is the right fit.</p></div><a className="public-button" href={`mailto:${contact}?subject=Murravo%20pilot%20inquiry`}>Talk to Murravo <Mail size={18} aria-hidden="true" /></a></div></section>
   </main><PublicFooter /></div>
 }
 
@@ -83,5 +83,5 @@ const policySections = [
 ] as const
 
 export function PrivacyPage() {
-  return <div className="public-page"><PublicHeader /><main className="public-policy public-container"><p className="public-kicker">POLICY</p><h1>Privacy at Murravo</h1><p className="public-policy-lead">This good-faith MVP policy explains how the current Murravo application handles information. It is not a certification or a substitute for advice about a particular deployment.</p><dl className="public-policy-facts"><div><dt>Product</dt><dd>Murravo</dd></div><div><dt>Operator</dt><dd>Mohammad Murrar</dd></div><div><dt>Contact</dt><dd><a href={`mailto:${contact}`}>{contact}</a></dd></div><div><dt>Last updated</dt><dd>September 16, 2026</dd></div></dl><div className="public-policy-body">{policySections.map(([heading, copy]) => <section key={heading}><h2>{heading}</h2><p>{copy}</p></section>)}</div></main><PublicFooter /></div>
+  return <div className="public-page"><PublicHeader /><main className="public-policy public-container"><p className="public-kicker">POLICY</p><h1>Privacy at Murravo</h1><p className="public-policy-lead">This good-faith MVP policy explains how the current Murravo application handles information. It is not a certification or a substitute for advice about a particular deployment.</p><dl className="public-policy-facts"><div><dt>Product</dt><dd>Murravo</dd></div><div><dt>Operator</dt><dd>Mohammad Murrar</dd></div><div><dt>Contact</dt><dd><a href={`mailto:${contact}`}>{contact}</a></dd></div><div><dt>Last updated</dt><dd>September 25, 2026</dd></div></dl><div className="public-policy-body">{policySections.map(([heading, copy]) => <section key={heading}><h2>{heading}</h2><p>{copy}</p></section>)}</div></main><PublicFooter /></div>
 }

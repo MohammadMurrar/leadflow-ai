@@ -1,11 +1,12 @@
 .public-home {
-  --home-accent: #185fa5;
-  --home-bg: #f7f9fc;
-  --home-soft: #edf4fa;
-  --home-line: #dce5ee;
-  --home-muted: #526679;
-  --home-ink: #172636;
-  --home-surface: #fff;
+  --home-accent: #142A43;
+  --home-coral: #F4775B;
+  --home-bg: #F7F2EA;
+  --home-soft: #EAF1F5;
+  --home-line: #D8E0E5;
+  --home-muted: #526879;
+  --home-ink: #142A43;
+  --home-surface: #FFFDF9;
   --home-radius: 8px;
   --pub-bg: var(--home-bg);
   --pub-ink: var(--home-ink);
@@ -19,20 +20,21 @@
 }
 
 .public-home .public-header { background: var(--home-surface); }
-.public-home .public-hero { border-bottom: 1px solid var(--home-line); background: var(--home-surface); }
+.public-home .public-hero { border-bottom: 1px solid var(--home-line); background: radial-gradient(circle at 87% 10%, rgb(111 164 201 / .18), transparent 34%), radial-gradient(circle at 4% 90%, rgb(244 119 91 / .11), transparent 28%), var(--home-surface); }
 .public-home .public-hero .public-container { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 48px; align-items: center; padding-block: 48px; }
 .public-home .public-hero-copy { max-width: 380px; animation: none; }
 .public-home .public-hero h1 { margin: 0; font-size: 48px; line-height: 1.1; }
+.public-home .public-hero h1 span { color: var(--home-coral); }
 .public-home .public-hero-statement { margin-top: 16px !important; color: var(--home-ink) !important; font-size: 24px !important; font-weight: 700; line-height: 1.25 !important; }
 .public-home .public-hero-copy > p:not(.public-hero-statement) { margin-top: 16px; color: var(--home-muted); font-size: 16px; line-height: 1.5; }
 .public-home .public-actions { gap: 16px; margin-top: 24px; }
 .public-home .public-button, .public-home .public-signin { min-height: 40px; border-radius: var(--home-radius); padding-inline: 16px; background: var(--home-accent); transition: background-color 160ms ease-out, border-color 160ms ease-out; }
-.public-home .public-button:hover, .public-home .public-signin:hover { transform: none; background: #144d87; }
+.public-home .public-button:hover, .public-home .public-signin:hover { transform: none; background: #102237; }
 .public-home .public-secondary { border-bottom: 1px solid transparent; transition: border-color 160ms ease-out; }
 .public-home .public-secondary:hover { border-bottom-color: var(--home-accent); text-decoration: none; }
 .public-home .public-nav a, .public-home .public-mobile-nav a, .public-home .public-footer a { border-bottom: 1px solid transparent; transition: border-color 160ms ease-out; }
 .public-home .public-nav a:hover, .public-home .public-mobile-nav a:hover, .public-home .public-footer a:hover { border-bottom-color: var(--home-accent); color: var(--home-muted); }
-.public-home .public-kicker { color: var(--home-accent); letter-spacing: 0; }
+.public-home .public-kicker { color: #B9412D; letter-spacing: .08em; }
 .public-home .public-section { padding-block: 80px; }
 .public-home .public-section h2, .public-home .public-process h2, .public-home .public-contact h2 { font-size: 32px; }
 .public-home .public-outcome { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 64px; }
