@@ -1,4 +1,4 @@
-# LeadFlow AI production deployment
+# Murravo production deployment
 
 This runbook describes the approved single-VPS foundation. It does not provision a server, alter DNS, or create secrets.
 
@@ -91,7 +91,7 @@ This is only for a fresh database. The script runs a non-web backend container, 
 
 ```bash
 export ADMIN_BOOTSTRAP_EMAIL='administrator@example.com'
-export ADMIN_BOOTSTRAP_DISPLAY_NAME='LeadFlow Administrator'
+export ADMIN_BOOTSTRAP_DISPLAY_NAME='Murravo Administrator'
 bash ./deploy/scripts/bootstrap-admin.sh
 unset ADMIN_BOOTSTRAP_EMAIL ADMIN_BOOTSTRAP_DISPLAY_NAME
 ```
